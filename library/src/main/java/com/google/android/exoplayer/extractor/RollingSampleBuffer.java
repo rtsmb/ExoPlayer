@@ -189,7 +189,7 @@ import java.util.concurrent.LinkedBlockingDeque;
       sampleHolder.replaceBuffer(sampleHolder.size);
     }
     if (sampleHolder.data != null) {
-      readData(extrasHolder.offset, sampleHolder.data, sampleHolder.size);
+      readData(extrasHolder.offset, sampleHolder.data, sampleHolder.size - sampleHolder.data.position());
     }
     // Advance the read head.
     long nextOffset = infoQueue.moveToNextSample();
