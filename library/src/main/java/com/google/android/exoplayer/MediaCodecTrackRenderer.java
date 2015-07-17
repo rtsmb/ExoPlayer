@@ -20,10 +20,8 @@ import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCodec.CryptoException;
 import android.media.MediaCrypto;
-import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.util.Log;
 
 import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
@@ -64,6 +62,13 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
     void onCryptoError(CryptoException e);
 
     /**
+     * Invoked when a decoder error occurred during play.
+     *
+     * @param e Corresponding exception or null if cause unknown
+     */
+    void onDecoderError(CodecException e);
+
+    /**
      * Invoked when a decoder is successfully created.
      *
      * @param decoderName The decoder that was configured and created.
@@ -73,7 +78,6 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
      */
     void onDecoderInitialized(String decoderName, long elapsedRealtimeMs,
         long initializationDurationMs);
-
   }
 
   /**
@@ -836,8 +840,9 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
       try {
         outputIndex = codec.dequeueOutputBuffer(outputBufferInfo, getDequeueOutputBufferTimeoutUs());
       } catch (IllegalStateException e) {
-        Log.e("MediaCodecTrackRenderer", "drain / dequeueOutputBuffer", e);
-        notifyDecoderError(e);
+        // An illegal state is thrown after a playing exception has occurred. Root cause cannot be
+        // known (except if we were to use setCallbacks / onError, but only for API >= 21)
+        notifyDecoderError(null);
         releaseCodec();
         return false;
       }
@@ -915,9 +920,15 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
     }
   }
 
-  private void notifyDecoderError(final Exception e) {
-    // TODO
-    Log.e("MediaCodecTrackRenderer", "Decoder error ", e);
+  protected void notifyDecoderError(final CodecException e) {
+    if (eventHandler != null && eventListener != null) {
+      eventHandler.post(new Runnable()  {
+        @Override
+        public void run() {
+          eventListener.onDecoderError(e);
+        }
+      });
+    }
   }
 
   private void notifyCryptoError(final CryptoException e) {

@@ -19,7 +19,6 @@ import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.audiofx.Virtualizer;
 import android.os.Handler;
-import android.util.Log;
 
 import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
 import com.google.android.exoplayer.audio.AudioTrack;
@@ -53,7 +52,6 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
      * @param e The corresponding exception.
      */
     void onAudioTrackWriteError(AudioTrack.WriteException e);
-
   }
 
   /**
@@ -304,8 +302,9 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
       try {
         codec.releaseOutputBuffer(bufferIndex, false);
       } catch (IllegalStateException e) {
-        Log.e("AudioTrackRenderer", "drain / dequeueOutputBuffer", e);
-        notifyAudioTrackDecoderError(e);
+        // An illegal state is thrown after a playing exception has occurred. Root cause cannot be
+        // known (except if we were to use setCallbacks / onError, but only for API >= 21)
+        notifyDecoderError(null);
         releaseCodec();
         return false;
       }
@@ -350,19 +349,4 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
       });
     }
   }
-
-  private void notifyAudioTrackDecoderError(final Exception e) {
-    // TODO
-//    if (eventHandler != null && eventListener != null) {
-//      eventHandler.post(new Runnable()  {
-//        @Override
-//        public void run() {
-//          eventListener.onAudioTrackDecoderError(e);
-//        }
-//      });
-//    }
-
-    Log.e("MediaCodecAudioTrackRenderer", "audio track decoder error", e);
-  }
-
 }
