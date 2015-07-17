@@ -15,15 +15,16 @@
  */
 package com.google.android.exoplayer;
 
-import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
-import com.google.android.exoplayer.audio.AudioTrack;
-import com.google.android.exoplayer.drm.DrmSessionManager;
-import com.google.android.exoplayer.util.MimeTypes;
-
 import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.audiofx.Virtualizer;
 import android.os.Handler;
+import android.util.Log;
+
+import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
+import com.google.android.exoplayer.audio.AudioTrack;
+import com.google.android.exoplayer.drm.DrmSessionManager;
+import com.google.android.exoplayer.util.MimeTypes;
 
 import java.nio.ByteBuffer;
 
@@ -300,7 +301,14 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
 
     // Release the buffer if it was consumed.
     if ((handleBufferResult & AudioTrack.RESULT_BUFFER_CONSUMED) != 0) {
-      codec.releaseOutputBuffer(bufferIndex, false);
+      try {
+        codec.releaseOutputBuffer(bufferIndex, false);
+      } catch (IllegalStateException e) {
+        Log.e("AudioTrackRenderer", "drain / dequeueOutputBuffer", e);
+        notifyAudioTrackDecoderError(e);
+        releaseCodec();
+        return false;
+      }
       codecCounters.renderedOutputBufferCount++;
       return true;
     }
@@ -341,6 +349,20 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
         }
       });
     }
+  }
+
+  private void notifyAudioTrackDecoderError(final Exception e) {
+    // TODO
+//    if (eventHandler != null && eventListener != null) {
+//      eventHandler.post(new Runnable()  {
+//        @Override
+//        public void run() {
+//          eventListener.onAudioTrackDecoderError(e);
+//        }
+//      });
+//    }
+
+    Log.e("MediaCodecAudioTrackRenderer", "audio track decoder error", e);
   }
 
 }

@@ -15,6 +15,16 @@
  */
 package com.google.android.exoplayer;
 
+import android.annotation.TargetApi;
+import android.media.MediaCodec;
+import android.media.MediaCodec.CodecException;
+import android.media.MediaCodec.CryptoException;
+import android.media.MediaCrypto;
+import android.os.Build;
+import android.os.Handler;
+import android.os.SystemClock;
+import android.util.Log;
+
 import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.drm.DrmInitData;
@@ -22,14 +32,6 @@ import com.google.android.exoplayer.drm.DrmSessionManager;
 import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.TraceUtil;
 import com.google.android.exoplayer.util.Util;
-
-import android.annotation.TargetApi;
-import android.media.MediaCodec;
-import android.media.MediaCodec.CodecException;
-import android.media.MediaCodec.CryptoException;
-import android.media.MediaCrypto;
-import android.os.Handler;
-import android.os.SystemClock;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -565,7 +567,7 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
    */
   private boolean feedInputBuffer(long positionUs, boolean firstFeed)
       throws IOException, ExoPlaybackException {
-    if (inputStreamEnded
+    if (codec == null || inputStreamEnded
         || codecReinitializationState == REINITIALIZATION_STATE_WAIT_END_OF_STREAM) {
       // The input stream has ended, or we need to re-initialize the codec but are still waiting
       // for the existing codec to output any final output buffers.
@@ -831,7 +833,14 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
     }
 
     if (outputIndex < 0) {
-      outputIndex = codec.dequeueOutputBuffer(outputBufferInfo, getDequeueOutputBufferTimeoutUs());
+      try {
+        outputIndex = codec.dequeueOutputBuffer(outputBufferInfo, getDequeueOutputBufferTimeoutUs());
+      } catch (IllegalStateException e) {
+        Log.e("MediaCodecTrackRenderer", "drain / dequeueOutputBuffer", e);
+        notifyDecoderError(e);
+        releaseCodec();
+        return false;
+      }
     }
 
     if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
@@ -904,6 +913,11 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
         }
       });
     }
+  }
+
+  private void notifyDecoderError(final Exception e) {
+    // TODO
+    Log.e("MediaCodecTrackRenderer", "Decoder error ", e);
   }
 
   private void notifyCryptoError(final CryptoException e) {
