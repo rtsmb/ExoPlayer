@@ -15,10 +15,10 @@
  */
 package com.google.android.exoplayer.upstream;
 
+import android.text.TextUtils;
+
 import com.google.android.exoplayer.util.Predicate;
 import com.google.android.exoplayer.util.Util;
-
-import android.text.TextUtils;
 
 import java.io.IOException;
 import java.util.List;
@@ -107,7 +107,7 @@ public interface HttpDataSource extends UriDataSource {
 
     public InvalidResponseCodeException(int responseCode, Map<String, List<String>> headerFields,
         DataSpec dataSpec) {
-      super("Response code: " + responseCode, dataSpec);
+      super("Response code: " + responseCode + " for " + dataSpec.uri, dataSpec);
       this.responseCode = responseCode;
       this.headerFields = headerFields;
     }
