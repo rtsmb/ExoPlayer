@@ -117,7 +117,7 @@ public class Eia608Parser {
   }
 
   /* package */ ClosedCaptionList parse(SampleHolder sampleHolder) {
-    if (sampleHolder.size < 10) {
+    if (sampleHolder.getSize() < 10) {
       return null;
     }
 

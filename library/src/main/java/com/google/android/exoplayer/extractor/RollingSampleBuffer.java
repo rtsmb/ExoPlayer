@@ -184,12 +184,9 @@ import java.util.concurrent.LinkedBlockingDeque;
     if (sampleHolder.isEncrypted()) {
       readEncryptionData(sampleHolder, extrasHolder);
     }
-    // Write the sample data into the holder.
-    if (sampleHolder.data == null || sampleHolder.data.capacity() < sampleHolder.size) {
-      sampleHolder.replaceBuffer(sampleHolder.size);
-    }
     if (sampleHolder.data != null) {
-      readData(extrasHolder.offset, sampleHolder.data, sampleHolder.size - sampleHolder.data.position());
+//      Log.v("RollingSmplBuf", String.format("offst:%d data.position:%d data.capacity:%d size:%d", extrasHolder.offset, sampleHolder.data.position(), sampleHolder.data.capacity(), sampleHolder.getSize()));
+      readData(extrasHolder.offset, sampleHolder.data, sampleHolder.getSize() - sampleHolder.data.position());
     }
     // Advance the read head.
     long nextOffset = infoQueue.moveToNextSample();
@@ -256,7 +253,7 @@ import java.util.concurrent.LinkedBlockingDeque;
       }
     } else {
       clearDataSizes[0] = 0;
-      encryptedDataSizes[0] = sampleHolder.size - (int) (offset - extrasHolder.offset);
+      encryptedDataSizes[0] = sampleHolder.getSize() - (int) (offset - extrasHolder.offset);
     }
 
     // Populate the cryptoInfo.
@@ -266,7 +263,7 @@ import java.util.concurrent.LinkedBlockingDeque;
     // Adjust the offset and size to take into account the bytes read.
     int bytesRead = (int) (offset - extrasHolder.offset);
     extrasHolder.offset += bytesRead;
-    sampleHolder.size -= bytesRead;
+    sampleHolder.setSize(sampleHolder.getSize() - bytesRead);
   }
 
   /**
@@ -532,7 +529,7 @@ import java.util.concurrent.LinkedBlockingDeque;
         return false;
       }
       holder.timeUs = timesUs[relativeReadIndex];
-      holder.size = sizes[relativeReadIndex];
+      holder.setSize(sizes[relativeReadIndex]);
       holder.flags = flags[relativeReadIndex];
       extrasHolder.offset = offsets[relativeReadIndex];
       extrasHolder.encryptionKeyId = encryptionKeys[relativeReadIndex];

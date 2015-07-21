@@ -680,7 +680,7 @@ public abstract class MediaCodecTrackRenderer extends TrackRenderer {
     }
     try {
       int bufferSize = sampleHolder.data.position();
-      int adaptiveReconfigurationBytes = bufferSize - sampleHolder.size;
+      int adaptiveReconfigurationBytes = bufferSize - sampleHolder.getSize();
       long presentationTimeUs = sampleHolder.timeUs;
       if (sampleHolder.isDecodeOnly()) {
         decodeOnlyPresentationTimestamps.add(presentationTimeUs);

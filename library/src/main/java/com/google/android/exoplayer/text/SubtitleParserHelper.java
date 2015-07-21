@@ -124,7 +124,7 @@ public class SubtitleParserHelper implements Handler.Callback {
     IOException error;
     SampleHolder holder = (SampleHolder) msg.obj;
     try {
-      InputStream inputStream = new ByteArrayInputStream(holder.data.array(), 0, holder.size);
+      InputStream inputStream = new ByteArrayInputStream(holder.data.array(), 0, holder.getSize());
       result = parser.parse(inputStream, null, sampleHolder.timeUs);
       error = null;
     } catch (IOException e) {

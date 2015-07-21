@@ -139,7 +139,7 @@ public class MetadataTrackRenderer<T> extends TrackRenderer implements Callback 
         int result = source.readData(trackIndex, positionUs, formatHolder, sampleHolder, false);
         if (result == SampleSource.SAMPLE_READ) {
           pendingMetadataTimestamp = sampleHolder.timeUs;
-          pendingMetadata = metadataParser.parse(sampleHolder.data.array(), sampleHolder.size);
+          pendingMetadata = metadataParser.parse(sampleHolder.data.array(), sampleHolder.getSize());
           sampleHolder.data.clear();
         } else if (result == SampleSource.END_OF_STREAM) {
           inputStreamEnded = true;
