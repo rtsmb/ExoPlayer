@@ -15,6 +15,11 @@
  */
 package com.google.android.exoplayer.demo;
 
+import android.media.MediaCodec;
+import android.media.MediaCodec.CryptoException;
+import android.os.SystemClock;
+import android.util.Log;
+
 import com.google.android.exoplayer.ExoPlayer;
 import com.google.android.exoplayer.MediaCodecTrackRenderer.DecoderInitializationException;
 import com.google.android.exoplayer.TimeRange;
@@ -22,10 +27,6 @@ import com.google.android.exoplayer.audio.AudioTrack;
 import com.google.android.exoplayer.chunk.Format;
 import com.google.android.exoplayer.demo.player.DemoPlayer;
 import com.google.android.exoplayer.util.VerboseLogUtil;
-
-import android.media.MediaCodec.CryptoException;
-import android.os.SystemClock;
-import android.util.Log;
 
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -145,6 +146,11 @@ public class EventLogger implements DemoPlayer.Listener, DemoPlayer.InfoListener
   @Override
   public void onDecoderInitializationError(DecoderInitializationException e) {
     printInternalError("decoderInitializationError", e);
+  }
+
+  @Override
+  public void onDecoderError(MediaCodec.CodecException e) {
+    printInternalError("decoderError", e);
   }
 
   @Override

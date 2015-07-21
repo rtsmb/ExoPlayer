@@ -15,6 +15,12 @@
  */
 package com.google.android.exoplayer.demo.player;
 
+import android.media.MediaCodec;
+import android.media.MediaCodec.CryptoException;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Surface;
+
 import com.google.android.exoplayer.CodecCounters;
 import com.google.android.exoplayer.DummyTrackRenderer;
 import com.google.android.exoplayer.ExoPlaybackException;
@@ -39,11 +45,6 @@ import com.google.android.exoplayer.upstream.BandwidthMeter;
 import com.google.android.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer.util.DebugTextViewHelper;
 import com.google.android.exoplayer.util.PlayerControl;
-
-import android.media.MediaCodec.CryptoException;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.Surface;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -127,6 +128,8 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     void onCryptoError(CryptoException e);
     void onLoadError(int sourceId, IOException e);
     void onDrmSessionManagerError(Exception e);
+
+    void onDecoderError(MediaCodec.CodecException e);
   }
 
   /**
@@ -500,6 +503,13 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   public void onDecoderInitializationError(DecoderInitializationException e) {
     if (internalErrorListener != null) {
       internalErrorListener.onDecoderInitializationError(e);
+    }
+  }
+
+  @Override
+  public void onDecoderError(MediaCodec.CodecException e) {
+    if (internalErrorListener != null) {
+      internalErrorListener.onDecoderError(e);
     }
   }
 
