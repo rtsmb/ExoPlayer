@@ -141,6 +141,7 @@ public class HlsChunkSource {
     private byte[] scratchSpace;
     private boolean live;
     private boolean dvr;
+    private boolean firstChunkRequest = true;
     private long durationUs;
 
     private Uri encryptionKeyUri;
@@ -289,11 +290,18 @@ public class HlsChunkSource {
         if (live) {
 
             if (previousTsChunk == null) {
-                if (!dvr || (playbackPositionUs == 0 && seekPositionUs == 0)) {
+                if (firstChunkRequest){
+                    firstChunkRequest = false;
                     chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+                }else if (dvr) {
+                    int seekPositionS = (int) (seekPositionUs / C.MICROS_PER_SECOND);
+                    int chunkIndexOffset = (seekPositionS / mediaPlaylist.targetDurationSecs);
+                    if (chunkIndexOffset >= mediaPlaylist.segments.size()) {
+                        chunkIndexOffset -= 3;
+                    }
+                    chunkMediaSequence = mediaPlaylist.mediaSequence + chunkIndexOffset;
                 } else {
-                    int playbackPositionS = (int) (playbackPositionUs / 1000000f);
-                    chunkMediaSequence = mediaPlaylist.mediaSequence + (playbackPositionS / mediaPlaylist.targetDurationSecs);
+                    chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
                 }
             } else {
                 chunkMediaSequence = switchingVariantSpliced
@@ -570,7 +578,7 @@ public class HlsChunkSource {
         variantLastPlaylistLoadTimesMs[variantIndex] = SystemClock.elapsedRealtime();
         variantPlaylists[variantIndex] = mediaPlaylist;
         live |= mediaPlaylist.live;
-        dvr = mediaPlaylist.segments.size() >= 10;
+        dvr = mediaPlaylist.segments.size() >= 10 && live;
         durationUs = mediaPlaylist.durationUs;
     }
 
