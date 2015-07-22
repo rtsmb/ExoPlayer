@@ -1,6 +1,12 @@
 # Release notes #
 
-### Current dev branch (from r1.4.0) ###
+### Current dev branch (from r1.4.1) ###
+
+* Added MulticastDataSource for connecting to multicast streams.
+
+### r1.4.1 ###
+
+* HLS: Fix premature playback failures that could occur in some cases.
 
 ### r1.4.0 ###
 

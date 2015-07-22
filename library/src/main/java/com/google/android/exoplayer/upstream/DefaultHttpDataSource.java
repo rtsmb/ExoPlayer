@@ -270,15 +270,15 @@ public class DefaultHttpDataSource implements HttpDataSource {
         } catch (IOException e) {
           throw new HttpDataSourceException(e, dataSpec);
         }
-        inputStream = null;
       }
     } finally {
+      inputStream = null;
+      closeConnection();
       if (opened) {
         opened = false;
         if (listener != null) {
           listener.onTransferEnd();
         }
-        closeConnection();
       }
     }
   }
