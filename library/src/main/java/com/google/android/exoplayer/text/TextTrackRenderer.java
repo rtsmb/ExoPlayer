@@ -141,7 +141,9 @@ public class TextTrackRenderer extends TrackRenderer implements Callback {
       for (int i = 0; i < subtitleParsers.length; i++) {
         try {
           subtitleParsers[i] = DEFAULT_PARSER_CLASSES.get(i).newInstance();
-        } catch (ReflectiveOperationException e) {
+        } catch (InstantiationException e) {
+          throw new IllegalStateException("Unexpected error creating default parser", e);
+        } catch (IllegalAccessException e) {
           throw new IllegalStateException("Unexpected error creating default parser", e);
         }
       }
@@ -204,6 +206,10 @@ public class TextTrackRenderer extends TrackRenderer implements Callback {
       }
     }
 
+    if (getState() != TrackRenderer.STATE_STARTED) {
+      return;
+    }
+
     boolean textRendererNeedsUpdate = false;
     long subtitleNextEventTimeUs = Long.MAX_VALUE;
     if (subtitle != null) {
@@ -226,7 +232,7 @@ public class TextTrackRenderer extends TrackRenderer implements Callback {
       textRendererNeedsUpdate = true;
     }
 
-    if (textRendererNeedsUpdate && getState() == TrackRenderer.STATE_STARTED) {
+    if (textRendererNeedsUpdate) {
       // textRendererNeedsUpdate is set and we're playing. Update the renderer.
       updateTextRenderer(subtitle.getCues(positionUs));
     }
