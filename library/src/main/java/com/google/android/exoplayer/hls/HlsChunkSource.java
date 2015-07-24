@@ -55,6 +55,7 @@ import java.util.Locale;
  */
 public class HlsChunkSource {
 
+
     /**
      * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
      */
@@ -67,7 +68,6 @@ public class HlsChunkSource {
      * The initially selected variant will be used throughout playback.
      */
     public static final int ADAPTIVE_MODE_NONE = 0;
-
     /**
      * Adaptive switches splice overlapping segments of the old and new variants.
      * <p/>
@@ -113,8 +113,10 @@ public class HlsChunkSource {
     public static final long DEFAULT_PLAYLIST_BLACKLIST_MS = 60000;
 
     private static final String TAG = "HlsChunkSource";
+
     private static final String AAC_FILE_EXTENSION = ".aac";
     private static final float BANDWIDTH_FRACTION = 0.8f;
+    private static final int DVR_SEGMENT_COUNT_THRESHOLD = 10;
 
     private final DataSource dataSource;
     private final HlsPlaylistParser playlistParser;
@@ -578,7 +580,7 @@ public class HlsChunkSource {
         variantLastPlaylistLoadTimesMs[variantIndex] = SystemClock.elapsedRealtime();
         variantPlaylists[variantIndex] = mediaPlaylist;
         live |= mediaPlaylist.live;
-        dvr = mediaPlaylist.segments.size() >= 10 && live;
+        dvr = live && mediaPlaylist.segments.size() >= DVR_SEGMENT_COUNT_THRESHOLD;
         durationUs = mediaPlaylist.durationUs;
     }
 
