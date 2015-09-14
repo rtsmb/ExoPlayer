@@ -15,14 +15,14 @@
  */
 package com.google.android.exoplayer;
 
+import android.net.Uri;
+import android.os.SystemClock;
+
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.upstream.DataSource;
 import com.google.android.exoplayer.upstream.DataSpec;
 import com.google.android.exoplayer.upstream.Loader;
 import com.google.android.exoplayer.upstream.Loader.Loadable;
-
-import android.net.Uri;
-import android.os.SystemClock;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -127,11 +127,8 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
       return NOTHING_READ;
     } else {
       sampleHolder.timeUs = 0;
-      sampleHolder.size = sampleSize;
+      sampleHolder.setSize(sampleSize);
       sampleHolder.flags = C.SAMPLE_FLAG_SYNC;
-      if (sampleHolder.data == null || sampleHolder.data.capacity() < sampleSize) {
-        sampleHolder.replaceBuffer(sampleHolder.size);
-      }
       sampleHolder.data.put(sampleData, 0, sampleSize);
       return SAMPLE_READ;
     }
