@@ -1,8 +1,15 @@
 # Release notes #
 
-### Current dev branch (from r1.4.1) ###
+### Current dev branch (from r1.4.2) ###
 
-* Added MulticastDataSource for connecting to multicast streams.
+* Nothing yet.
+
+### r1.4.2 ###
+
+* Implemented automatic format detection for regular container formats.
+* Added UdpDataSource for connecting to multicast streams.
+* Improved robustness for MP4 playbacks.
+* Misc bug fixes.
 
 ### r1.4.1 ###
 
@@ -19,7 +26,6 @@
 * TTML: Improved handling of whitespace.
 * DASH: Support Mpd.Location element.
 * Add option to TsExtractor to allow non-IDR keyframes.
-* Added MulticastDataSource for connecting to multicast streams.
 * (WorkInProgress) - First steps to supporting seeking in DASH DVR window.
 * (WorkInProgress) - First steps to supporting styled + positioned subtitles.
 * Misc bug fixes.

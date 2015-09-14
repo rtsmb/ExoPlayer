@@ -40,7 +40,7 @@ import java.util.LinkedList;
 /**
  * A {@link SampleSource} for HLS streams.
  */
-public class HlsSampleSource implements SampleSource, SampleSourceReader, Loader.Callback {
+public final class HlsSampleSource implements SampleSource, SampleSourceReader, Loader.Callback {
 
   /**
    * Interface definition for a callback to be notified of {@link HlsSampleSource} events.
@@ -56,7 +56,6 @@ public class HlsSampleSource implements SampleSource, SampleSourceReader, Loader
 
   private final HlsChunkSource chunkSource;
   private final LinkedList<HlsExtractorWrapper> extractors;
-  private final boolean frameAccurateSeeking;
   private final int minLoadableRetryCount;
   private final int bufferSizeContribution;
 
@@ -92,24 +91,23 @@ public class HlsSampleSource implements SampleSource, SampleSourceReader, Loader
   private long currentLoadStartTimeMs;
 
   public HlsSampleSource(HlsChunkSource chunkSource, LoadControl loadControl,
-      int bufferSizeContribution, boolean frameAccurateSeeking) {
-    this(chunkSource, loadControl, bufferSizeContribution, frameAccurateSeeking, null, null, 0);
+      int bufferSizeContribution) {
+    this(chunkSource, loadControl, bufferSizeContribution, null, null, 0);
   }
 
   public HlsSampleSource(HlsChunkSource chunkSource, LoadControl loadControl,
-      int bufferSizeContribution, boolean frameAccurateSeeking, Handler eventHandler,
-      EventListener eventListener, int eventSourceId) {
-    this(chunkSource, loadControl, bufferSizeContribution, frameAccurateSeeking, eventHandler,
-        eventListener, eventSourceId, DEFAULT_MIN_LOADABLE_RETRY_COUNT);
+      int bufferSizeContribution, Handler eventHandler, EventListener eventListener,
+      int eventSourceId) {
+    this(chunkSource, loadControl, bufferSizeContribution, eventHandler, eventListener,
+        eventSourceId, DEFAULT_MIN_LOADABLE_RETRY_COUNT);
   }
 
   public HlsSampleSource(HlsChunkSource chunkSource, LoadControl loadControl,
-      int bufferSizeContribution, boolean frameAccurateSeeking, Handler eventHandler,
-      EventListener eventListener, int eventSourceId, int minLoadableRetryCount) {
+      int bufferSizeContribution, Handler eventHandler, EventListener eventListener,
+      int eventSourceId, int minLoadableRetryCount) {
     this.chunkSource = chunkSource;
     this.loadControl = loadControl;
     this.bufferSizeContribution = bufferSizeContribution;
-    this.frameAccurateSeeking = frameAccurateSeeking;
     this.minLoadableRetryCount = minLoadableRetryCount;
     this.eventHandler = eventHandler;
     this.eventListener = eventListener;
@@ -298,7 +296,7 @@ public class HlsSampleSource implements SampleSource, SampleSourceReader, Loader
     }
 
     if (extractor.getSample(track, sampleHolder)) {
-      boolean decodeOnly = frameAccurateSeeking && sampleHolder.timeUs < lastSeekPositionUs;
+      boolean decodeOnly = sampleHolder.timeUs < lastSeekPositionUs;
       sampleHolder.flags |= decodeOnly ? C.SAMPLE_FLAG_DECODE_ONLY : 0;
       return SAMPLE_READ;
     }
@@ -563,7 +561,7 @@ public class HlsSampleSource implements SampleSource, SampleSourceReader, Loader
     return Math.min((errorCount - 1) * 1000, 5000);
   }
 
-  protected final int usToMs(long timeUs) {
+  /* package */ int usToMs(long timeUs) {
     return (int) (timeUs / 1000);
   }
 

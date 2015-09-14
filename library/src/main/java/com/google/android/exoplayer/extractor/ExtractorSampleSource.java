@@ -67,8 +67,8 @@ import java.util.List;
  * constructor. When reading a new stream, the first {@link Extractor} that returns {@code true}
  * from {@link Extractor#sniff(ExtractorInput)} will be used.
  */
-public class ExtractorSampleSource implements SampleSource, SampleSourceReader, ExtractorOutput,
-    Loader.Callback {
+public final class ExtractorSampleSource implements SampleSource, SampleSourceReader,
+    ExtractorOutput, Loader.Callback {
 
   /**
    * Thrown if the input format could not recognized.
@@ -154,7 +154,6 @@ public class ExtractorSampleSource implements SampleSource, SampleSourceReader, 
   private final int requestedBufferSize;
   private final SparseArray<InternalTrackOutput> sampleQueues;
   private final int minLoadableRetryCount;
-  private final boolean frameAccurateSeeking;
   private final Uri uri;
   private final DataSource dataSource;
 
@@ -269,7 +268,6 @@ public class ExtractorSampleSource implements SampleSource, SampleSourceReader, 
     extractorHolder = new ExtractorHolder(extractors, this);
     sampleQueues = new SparseArray<>();
     pendingResetPositionUs = NO_RESET_PENDING;
-    frameAccurateSeeking = true;
   }
 
   @Override
@@ -390,7 +388,7 @@ public class ExtractorSampleSource implements SampleSource, SampleSourceReader, 
     }
 
     if (sampleQueue.getSample(sampleHolder)) {
-      boolean decodeOnly = frameAccurateSeeking && sampleHolder.timeUs < lastSeekPositionUs;
+      boolean decodeOnly = sampleHolder.timeUs < lastSeekPositionUs;
       sampleHolder.flags |= decodeOnly ? C.SAMPLE_FLAG_DECODE_ONLY : 0;
       if (havePendingNextSampleUs) {
         // Set the offset to make the timestamp of this sample equal to pendingNextSampleUs.
