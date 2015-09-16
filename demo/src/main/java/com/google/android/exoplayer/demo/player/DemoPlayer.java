@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer.demo.player;
 
-import android.media.MediaCodec;
 import android.media.MediaCodec.CryptoException;
 import android.os.Handler;
 import android.os.Looper;
@@ -110,7 +109,7 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     void onLoadError(int sourceId, IOException e);
     void onDrmSessionManagerError(Exception e);
 
-    void onDecoderError(MediaCodec.CodecException e);
+    void onDecoderError(IllegalStateException e);
   }
 
   /**
@@ -496,7 +495,7 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   }
 
   @Override
-  public void onDecoderError(MediaCodec.CodecException e) {
+  public void onDecoderError(IllegalStateException e) {
     if (internalErrorListener != null) {
       internalErrorListener.onDecoderError(e);
     }

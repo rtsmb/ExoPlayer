@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer.demo;
 
-import android.media.MediaCodec;
 import android.media.MediaCodec.CryptoException;
 import android.os.SystemClock;
 import android.util.Log;
@@ -149,7 +148,7 @@ public class EventLogger implements DemoPlayer.Listener, DemoPlayer.InfoListener
   }
 
   @Override
-  public void onDecoderError(MediaCodec.CodecException e) {
+  public void onDecoderError(IllegalStateException e) {
     printInternalError("decoderError", e);
   }
 
