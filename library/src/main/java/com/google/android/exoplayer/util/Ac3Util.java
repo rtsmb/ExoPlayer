@@ -36,8 +36,14 @@ public final class Ac3Util {
   /**
    * Returns the AC-3 format given {@code data} containing the AC3SpecificBox according to
    * ETSI TS 102 366 Annex F.
+   *
+   * @param data The AC3SpecificBox.
+   * @param durationUs The duration to set on the format, in microseconds.
+   * @param language The language to set on the format.
+   * @return The AC-3 format parsed from data in the header.
    */
-  public static MediaFormat parseAnnexFAc3Format(ParsableByteArray data, long durationUs) {
+  public static MediaFormat parseAnnexFAc3Format(ParsableByteArray data, long durationUs,
+      String language) {
     // fscod (sample rate code)
     int fscod = (data.readUnsignedByte() & 0xC0) >> 6;
     int sampleRate = SAMPLE_RATES[fscod];
@@ -49,14 +55,20 @@ public final class Ac3Util {
       channelCount++;
     }
     return MediaFormat.createAudioFormat(MimeTypes.AUDIO_AC3, MediaFormat.NO_VALUE,
-        MediaFormat.NO_VALUE, durationUs, channelCount, sampleRate, null);
+        MediaFormat.NO_VALUE, durationUs, channelCount, sampleRate, null, language);
   }
 
   /**
-   * Returns the AC-3 format given {@code data} containing the EC3SpecificBox according to
+   * Returns the E-AC-3 format given {@code data} containing the EC3SpecificBox according to
    * ETSI TS 102 366 Annex F.
+   *
+   * @param data The EC3SpecificBox.
+   * @param durationUs The duration to set on the format, in microseconds.
+   * @param language The language to set on the format.
+   * @return The E-AC-3 format parsed from data in the header.
    */
-  public static MediaFormat parseAnnexFEAc3Format(ParsableByteArray data, long durationUs) {
+  public static MediaFormat parseAnnexFEAc3Format(ParsableByteArray data, long durationUs,
+      String language) {
     data.skipBytes(2); // Skip data_rate and num_ind_sub.
 
     // Read only the first substream.
@@ -72,7 +84,7 @@ public final class Ac3Util {
       channelCount++;
     }
     return MediaFormat.createAudioFormat(MimeTypes.AUDIO_EC3, MediaFormat.NO_VALUE,
-        MediaFormat.NO_VALUE, durationUs, channelCount, sampleRate, null);
+        MediaFormat.NO_VALUE, durationUs, channelCount, sampleRate, null, language);
   }
 
   /**
@@ -80,9 +92,12 @@ public final class Ac3Util {
    * word.
    *
    * @param data Data to parse, positioned at the start of the syncword.
-   * @return AC-3 format parsed from data in the header.
+   * @param durationUs The duration to set on the format, in microseconds.
+   * @param language The language to set on the format.
+   * @return The AC-3 format parsed from data in the header.
    */
-  public static MediaFormat parseFrameAc3Format(ParsableBitArray data) {
+  public static MediaFormat parseFrameAc3Format(ParsableBitArray data, long durationUs,
+      String language) {
     // Skip syncword and crc1.
     data.skipBits(4 * 8);
 
@@ -100,7 +115,8 @@ public final class Ac3Util {
     }
     boolean lfeon = data.readBit();
     return MediaFormat.createAudioFormat(MimeTypes.AUDIO_AC3, MediaFormat.NO_VALUE,
-        MediaFormat.NO_VALUE, CHANNEL_COUNTS[acmod] + (lfeon ? 1 : 0), SAMPLE_RATES[fscod], null);
+        MediaFormat.NO_VALUE, durationUs, CHANNEL_COUNTS[acmod] + (lfeon ? 1 : 0),
+        SAMPLE_RATES[fscod], null, language);
   }
 
   /**
