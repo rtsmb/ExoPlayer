@@ -15,6 +15,11 @@
  */
 package com.google.android.exoplayer.hls;
 
+import android.net.Uri;
+import android.os.SystemClock;
+import android.text.TextUtils;
+import android.util.Log;
+
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.chunk.BaseChunkSampleSourceEventListener;
@@ -34,11 +39,6 @@ import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.UriUtil;
 import com.google.android.exoplayer.util.Util;
 
-import android.net.Uri;
-import android.os.SystemClock;
-import android.text.TextUtils;
-import android.util.Log;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -55,6 +55,8 @@ import java.util.Locale;
  * implementation is going to naturally diverge.
  */
 public class HlsChunkSource {
+
+  private long liveWindowStartTimeMs = C.UNKNOWN_TIME_US;
 
   /**
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
@@ -276,6 +278,7 @@ public class HlsChunkSource {
     boolean liveDiscontinuity = false;
 
     if (previousTsChunk == null) {
+      liveWindowStartTimeMs = System.currentTimeMillis() - durationUs / 1000;
       if (!live || seekPositionUs != 0) {
         chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
                 true) + mediaPlaylist.mediaSequence;
@@ -555,6 +558,7 @@ public class HlsChunkSource {
   }
 
   private void setMediaPlaylist(int variantIndex, HlsMediaPlaylist mediaPlaylist) {
+    Log.v(TAG, "media playlist: " + variantIndex + " duration: " + mediaPlaylist.durationUs + " ms" + " live:" + mediaPlaylist.live);
     variantLastPlaylistLoadTimesMs[variantIndex] = SystemClock.elapsedRealtime();
     variantPlaylists[variantIndex] = mediaPlaylist;
     live |= mediaPlaylist.live;
@@ -715,7 +719,18 @@ public class HlsChunkSource {
     public byte[] getResult() {
       return result;
     }
-
   }
 
+  public long[] getLiveRangeMs() {
+    long now = System.currentTimeMillis();
+    return new long[] { now - durationUs / 1000, now};
+  }
+
+  public long convertLiveTrackPositionMs(long positionUs) {
+    if (liveWindowStartTimeMs == C.UNKNOWN_TIME_US) {
+      return C.UNKNOWN_TIME_US;
+    } else {
+      return liveWindowStartTimeMs + positionUs / 1000;
+    }
+  }
 }

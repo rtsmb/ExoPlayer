@@ -15,6 +15,10 @@
  */
 package com.google.android.exoplayer.demo.player;
 
+import android.content.Context;
+import android.media.MediaCodec;
+import android.os.Handler;
+
 import com.google.android.exoplayer.DefaultLoadControl;
 import com.google.android.exoplayer.LoadControl;
 import com.google.android.exoplayer.MediaCodecAudioTrackRenderer;
@@ -38,10 +42,6 @@ import com.google.android.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer.upstream.DefaultUriDataSource;
 import com.google.android.exoplayer.util.ManifestFetcher;
 import com.google.android.exoplayer.util.ManifestFetcher.ManifestCallback;
-
-import android.content.Context;
-import android.media.MediaCodec;
-import android.os.Handler;
 
 import java.io.IOException;
 import java.util.Map;
@@ -156,12 +156,14 @@ public class HlsRendererBuilder implements RendererBuilder {
           sampleSource, new Id3Parser(), player, mainHandler.getLooper());
       Eia608TrackRenderer closedCaptionRenderer = new Eia608TrackRenderer(sampleSource, player,
           mainHandler.getLooper());
+      HlsLiveTimeRenderer liveTimeRenderer = new HlsLiveTimeRenderer(chunkSource, audioRenderer, player, mainHandler.getLooper());
 
       TrackRenderer[] renderers = new TrackRenderer[DemoPlayer.RENDERER_COUNT];
       renderers[DemoPlayer.TYPE_VIDEO] = videoRenderer;
       renderers[DemoPlayer.TYPE_AUDIO] = audioRenderer;
       renderers[DemoPlayer.TYPE_METADATA] = id3Renderer;
       renderers[DemoPlayer.TYPE_TEXT] = closedCaptionRenderer;
+      renderers[DemoPlayer.TYPE_LIVE_TIME_RENDERER] = liveTimeRenderer;
       player.onRenderers(renderers, bandwidthMeter);
     }
 

@@ -15,16 +15,21 @@
  */
 package com.google.android.exoplayer.util;
 
+import android.widget.TextView;
+
 import com.google.android.exoplayer.CodecCounters;
 import com.google.android.exoplayer.chunk.Format;
 import com.google.android.exoplayer.upstream.BandwidthMeter;
 
-import android.widget.TextView;
+import java.text.DateFormat;
+import java.util.Date;
 
 /**
  * A helper class for periodically updating debug information displayed by a {@link TextView}.
  */
 public final class DebugTextViewHelper implements Runnable {
+
+  private DateFormat liveTimeFormat;
 
   /**
    * Provides debug information about an ongoing playback.
@@ -51,6 +56,9 @@ public final class DebugTextViewHelper implements Runnable {
      */
     CodecCounters getCodecCounters();
 
+    long getLiveTimeMs();
+
+    long[] getLiveTimeRange();
   }
 
   private static final int REFRESH_INTERVAL_MS = 1000;
@@ -65,6 +73,7 @@ public final class DebugTextViewHelper implements Runnable {
   public DebugTextViewHelper(Provider debuggable, TextView textView) {
     this.debuggable = debuggable;
     this.textView = textView;
+    liveTimeFormat = DateFormat.getTimeInstance();
   }
 
   /**
@@ -93,12 +102,26 @@ public final class DebugTextViewHelper implements Runnable {
   }
 
   private String getRenderString() {
-    return getTimeString() + " " + getQualityString() + " " + getBandwidthString() + " "
-        + getVideoCodecCountersString();
+    return getTimeString() + " "
+            + getLiveTimeString() + " "
+            + getQualityString() + " "
+            + getBandwidthString() + " "
+            + getVideoCodecCountersString();
   }
 
   private String getTimeString() {
     return "ms(" + debuggable.getCurrentPosition() + ")";
+  }
+
+  private String getLiveTimeString() {
+    long[] liveTimeRange = debuggable.getLiveTimeRange();
+    if (liveTimeRange != null) {
+      return "live(" + liveTimeFormat.format(new Date(debuggable.getLiveTimeMs())) +
+              " [" + liveTimeFormat.format(new Date(liveTimeRange[0])) +
+              "/" + liveTimeFormat.format(new Date(liveTimeRange[1])) + "] )";
+    } else {
+      return "no_live_info";
+    }
   }
 
   private String getQualityString() {

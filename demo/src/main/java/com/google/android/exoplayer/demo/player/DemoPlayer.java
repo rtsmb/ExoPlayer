@@ -15,6 +15,11 @@
  */
 package com.google.android.exoplayer.demo.player;
 
+import android.media.MediaCodec.CryptoException;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Surface;
+
 import com.google.android.exoplayer.CodecCounters;
 import com.google.android.exoplayer.DummyTrackRenderer;
 import com.google.android.exoplayer.ExoPlaybackException;
@@ -40,11 +45,6 @@ import com.google.android.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer.util.DebugTextViewHelper;
 import com.google.android.exoplayer.util.PlayerControl;
 
-import android.media.MediaCodec.CryptoException;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.Surface;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -60,7 +60,10 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     HlsSampleSource.EventListener, DefaultBandwidthMeter.EventListener,
     MediaCodecVideoTrackRenderer.EventListener, MediaCodecAudioTrackRenderer.EventListener,
     StreamingDrmSessionManager.EventListener, DashChunkSource.EventListener, TextRenderer,
-    MetadataRenderer<Map<String, Object>>, DebugTextViewHelper.Provider {
+    MetadataRenderer<Map<String, Object>>, DebugTextViewHelper.Provider, HlsLiveTimeRenderer.LiveTimeRenderer {
+
+  private long[] liveTimeRange;
+  private long liveTimeMs;
 
   /**
    * Builds renderers for the player.
@@ -153,11 +156,12 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   public static final int TRACK_DISABLED = ExoPlayer.TRACK_DISABLED;
   public static final int TRACK_DEFAULT = ExoPlayer.TRACK_DEFAULT;
 
-  public static final int RENDERER_COUNT = 4;
+  public static final int RENDERER_COUNT = 5;
   public static final int TYPE_VIDEO = 0;
   public static final int TYPE_AUDIO = 1;
   public static final int TYPE_TEXT = 2;
   public static final int TYPE_METADATA = 3;
+  public static final int TYPE_LIVE_TIME_RENDERER = 4;
 
   private static final int RENDERER_BUILDING_STATE_IDLE = 1;
   private static final int RENDERER_BUILDING_STATE_BUILDING = 2;
@@ -551,7 +555,7 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
       int mediaStartTimeMs, int mediaEndTimeMs, long elapsedRealtimeMs, long loadDurationMs) {
     if (infoListener != null) {
       infoListener.onLoadCompleted(sourceId, bytesLoaded, type, trigger, format, mediaStartTimeMs,
-          mediaEndTimeMs, elapsedRealtimeMs, loadDurationMs);
+              mediaEndTimeMs, elapsedRealtimeMs, loadDurationMs);
     }
   }
 
@@ -584,11 +588,24 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
 
     if (blockForSurfacePush) {
       player.blockingSendMessage(
-          videoRenderer, MediaCodecVideoTrackRenderer.MSG_SET_SURFACE, surface);
+              videoRenderer, MediaCodecVideoTrackRenderer.MSG_SET_SURFACE, surface);
     } else {
       player.sendMessage(
           videoRenderer, MediaCodecVideoTrackRenderer.MSG_SET_SURFACE, surface);
     }
   }
 
+  @Override
+  public void onLiveTimeUpdate(long[] availableTimeRangeMs, long currentTimeMs) {
+    this.liveTimeRange = availableTimeRangeMs;
+    this.liveTimeMs = currentTimeMs;
+  }
+
+  public long getLiveTimeMs() {
+    return liveTimeMs;
+  }
+
+  public long[] getLiveTimeRange() {
+    return liveTimeRange;
+  }
 }
