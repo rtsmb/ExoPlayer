@@ -272,34 +272,29 @@ public class HlsChunkSource {
     }
 
     selectedVariantIndex = nextVariantIndex;
-    int chunkMediaSequence = 0;
+    int chunkMediaSequence;
     boolean liveDiscontinuity = false;
-    if (live) {
-      if (previousTsChunk == null) {
-        chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+
+    if (previousTsChunk == null) {
+      if (!live || seekPositionUs != 0) {
+        chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
+                true) + mediaPlaylist.mediaSequence;
       } else {
-        chunkMediaSequence = switchingVariantSpliced
-            ? previousTsChunk.chunkIndex : previousTsChunk.chunkIndex + 1;
-        if (chunkMediaSequence < mediaPlaylist.mediaSequence) {
-          // TODO: Decide what we want to do with: https://github.com/google/ExoPlayer/issues/765
-          // if (allowSkipAhead) {
-          // If the chunk is no longer in the playlist. Skip ahead and start again.
-          chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
-          liveDiscontinuity = true;
-          // } else {
-          //   fatalError = new BehindLiveWindowException();
-          //   return null;
-          // }
-        }
+        chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
       }
     } else {
-      // Not live.
-      if (previousTsChunk == null) {
-        chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
-            true) + mediaPlaylist.mediaSequence;
-      } else {
-        chunkMediaSequence = switchingVariantSpliced
-            ? previousTsChunk.chunkIndex : previousTsChunk.chunkIndex + 1;
+      chunkMediaSequence = switchingVariantSpliced
+              ? previousTsChunk.chunkIndex : previousTsChunk.chunkIndex + 1;
+      if (live && chunkMediaSequence < mediaPlaylist.mediaSequence) {
+        // TODO: Decide what we want to do with: https://github.com/google/ExoPlayer/issues/765
+        // if (allowSkipAhead) {
+        // If the chunk is no longer in the playlist. Skip ahead and start again.
+        chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+        liveDiscontinuity = true;
+        // } else {
+        //   fatalError = new BehindLiveWindowException();
+        //   return null;
+        // }
       }
     }
 
@@ -307,76 +302,72 @@ public class HlsChunkSource {
     if (chunkIndex >= mediaPlaylist.segments.size()) {
       if (!mediaPlaylist.live) {
         out.endOfStream = true;
-      } else if (shouldRerequestLiveMediaPlaylist(nextVariantIndex)) {
-        out.chunk = newMediaPlaylistChunk(nextVariantIndex);
-      }
-      return;
-    }
-
-    HlsMediaPlaylist.Segment segment = mediaPlaylist.segments.get(chunkIndex);
-    Uri chunkUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, segment.url);
-
-    // Check if encryption is specified.
-    if (segment.isEncrypted) {
-      Uri keyUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, segment.encryptionKeyUri);
-      if (!keyUri.equals(encryptionKeyUri)) {
-        // Encryption is specified and the key has changed.
-        out.chunk = newEncryptionKeyChunk(keyUri, segment.encryptionIV, selectedVariantIndex);
-        return;
-      }
-      if (!Util.areEqual(segment.encryptionIV, encryptionIvString)) {
-        setEncryptionData(keyUri, segment.encryptionIV, encryptionKey);
-      }
-    } else {
-      clearEncryptionData();
-    }
-
-    // Configure the data source and spec for the chunk.
-    DataSpec dataSpec = new DataSpec(chunkUri, segment.byterangeOffset, segment.byterangeLength,
-        null);
-
-    // Compute start and end times, and the sequence number of the next chunk.
-    long startTimeUs;
-    if (live) {
-      if (previousTsChunk == null) {
-        startTimeUs = 0;
-      } else if (switchingVariantSpliced) {
-        startTimeUs = previousTsChunk.startTimeUs;
       } else {
-        startTimeUs = previousTsChunk.endTimeUs;
-      }
-    } else /* Not live */ {
-      startTimeUs = segment.startTimeUs;
-    }
-    long endTimeUs = startTimeUs + (long) (segment.durationSecs * C.MICROS_PER_SECOND);
-    int trigger = Chunk.TRIGGER_UNSPECIFIED;
-    Format format = variants[selectedVariantIndex].format;
-
-    // Configure the extractor that will read the chunk.
-    HlsExtractorWrapper extractorWrapper;
-
-    if (previousTsChunk == null || segment.discontinuity || liveDiscontinuity
-        || !format.equals(previousTsChunk.format)) {
-      Extractor extractor;
-      if (chunkUri.getLastPathSegment().endsWith(AAC_FILE_EXTENSION)) {
-        extractor = new AdtsExtractor(startTimeUs);
-      } else {
-        if (previousTsChunk == null || segment.discontinuity || liveDiscontinuity
-            || ptsTimestampAdjuster == null) {
-          // TODO: Use this for AAC as well, along with the ID3 PRIV priv tag values with owner
-          // identifier com.apple.streaming.transportStreamTimestamp.
-          ptsTimestampAdjuster = new PtsTimestampAdjuster(startTimeUs);
+        if (shouldRerequestLiveMediaPlaylist(nextVariantIndex)) {
+          out.chunk = newMediaPlaylistChunk(nextVariantIndex);
         }
-        extractor = new TsExtractor(ptsTimestampAdjuster);
       }
-      extractorWrapper = new HlsExtractorWrapper(trigger, format, startTimeUs, extractor,
-          switchingVariantSpliced, adaptiveMaxWidth, adaptiveMaxHeight);
     } else {
-      extractorWrapper = previousTsChunk.extractorWrapper;
-    }
+      HlsMediaPlaylist.Segment segment = mediaPlaylist.segments.get(chunkIndex);
+      Uri chunkUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, segment.url);
 
-    out.chunk = new TsChunk(dataSource, dataSpec, trigger, format, startTimeUs, endTimeUs,
-        chunkMediaSequence, extractorWrapper, encryptionKey, encryptionIv);
+      // Check if encryption is specified.
+      if (segment.isEncrypted) {
+        Uri keyUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, segment.encryptionKeyUri);
+        if (!keyUri.equals(encryptionKeyUri)) {
+          // Encryption is specified and the key has changed.
+          out.chunk = newEncryptionKeyChunk(keyUri, segment.encryptionIV, selectedVariantIndex);
+          return;
+        }
+        if (!Util.areEqual(segment.encryptionIV, encryptionIvString)) {
+          setEncryptionData(keyUri, segment.encryptionIV, encryptionKey);
+        }
+      } else {
+        clearEncryptionData();
+      }
+
+      // Configure the data source and spec for the chunk.
+      DataSpec dataSpec = new DataSpec(chunkUri, segment.byterangeOffset, segment.byterangeLength,
+              null);
+
+      // Compute start and end times, and the sequence number of the next chunk.
+      long startTimeUs = segment.startTimeUs;
+      long endTimeUs = startTimeUs + (long) (segment.durationSecs * C.MICROS_PER_SECOND);
+      int trigger = Chunk.TRIGGER_UNSPECIFIED;
+      Format format = variants[selectedVariantIndex].format;
+
+      // Configure the extractor that will read the chunk.
+      HlsExtractorWrapper extractorWrapper;
+
+      if (previousTsChunk == null || segment.discontinuity || liveDiscontinuity
+              || !format.equals(previousTsChunk.format)) {
+        Extractor extractor;
+        if (chunkUri.getLastPathSegment().endsWith(AAC_FILE_EXTENSION)) {
+          extractor = new AdtsExtractor(startTimeUs);
+        } else {
+          if (previousTsChunk == null || segment.discontinuity || liveDiscontinuity
+                  || ptsTimestampAdjuster == null) {
+            // TODO: Use this for AAC as well, along with the ID3 PRIV priv tag values with owner
+            // identifier com.apple.streaming.transportStreamTimestamp.
+            ptsTimestampAdjuster = new PtsTimestampAdjuster(startTimeUs);
+          }
+          extractor = new TsExtractor(ptsTimestampAdjuster);
+        }
+        extractorWrapper = new HlsExtractorWrapper(trigger, format, startTimeUs, extractor,
+                switchingVariantSpliced, adaptiveMaxWidth, adaptiveMaxHeight);
+      } else {
+        extractorWrapper = previousTsChunk.extractorWrapper;
+
+        // Take this opportunity to rerequest live media playlist
+        if (shouldRerequestLiveMediaPlaylist(nextVariantIndex)) {
+          out.chunk = newMediaPlaylistChunk(nextVariantIndex);
+          return;
+        }
+      }
+
+      out.chunk = new TsChunk(dataSource, dataSpec, trigger, format, startTimeUs, endTimeUs,
+              chunkMediaSequence, extractorWrapper, encryptionKey, encryptionIv);
+    }
   }
 
   /**
@@ -567,7 +558,7 @@ public class HlsChunkSource {
     variantLastPlaylistLoadTimesMs[variantIndex] = SystemClock.elapsedRealtime();
     variantPlaylists[variantIndex] = mediaPlaylist;
     live |= mediaPlaylist.live;
-    durationUs = live ? C.UNKNOWN_TIME_US : mediaPlaylist.durationUs;
+    durationUs = mediaPlaylist.durationUs;
   }
 
   /**
