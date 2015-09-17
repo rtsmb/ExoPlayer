@@ -15,13 +15,6 @@
  */
 package com.google.android.exoplayer;
 
-import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
-import com.google.android.exoplayer.drm.DrmInitData;
-import com.google.android.exoplayer.drm.DrmSessionManager;
-import com.google.android.exoplayer.util.Assertions;
-import com.google.android.exoplayer.util.TraceUtil;
-import com.google.android.exoplayer.util.Util;
-
 import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
@@ -31,14 +24,12 @@ import android.os.Handler;
 import android.os.SystemClock;
 
 import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
-import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.drm.DrmInitData;
 import com.google.android.exoplayer.drm.DrmSessionManager;
 import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.TraceUtil;
 import com.google.android.exoplayer.util.Util;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -312,7 +303,7 @@ public abstract class MediaCodecTrackRenderer extends SampleSourceTrackRenderer 
       if (drmSessionState == DrmSessionManager.STATE_ERROR) {
         throw new ExoPlaybackException(drmSessionManager.getError());
       } else if (drmSessionState == DrmSessionManager.STATE_OPENED
-          || drmSessionState == DrmSessionManager.STATE_OPENED_WITH_KEYS) {
+              || drmSessionState == DrmSessionManager.STATE_OPENED_WITH_KEYS) {
         mediaCrypto = drmSessionManager.getMediaCrypto();
         requiresSecureDecoder = drmSessionManager.requiresSecureDecoderComponent(mimeType);
       } else {
@@ -326,12 +317,12 @@ public abstract class MediaCodecTrackRenderer extends SampleSourceTrackRenderer 
       decoderInfo = getDecoderInfo(mimeType, requiresSecureDecoder);
     } catch (DecoderQueryException e) {
       notifyAndThrowDecoderInitError(new DecoderInitializationException(format, e,
-          DecoderInitializationException.DECODER_QUERY_ERROR));
+              DecoderInitializationException.DECODER_QUERY_ERROR));
     }
 
     if (decoderInfo == null) {
       notifyAndThrowDecoderInitError(new DecoderInitializationException(format, null,
-          DecoderInitializationException.NO_SUITABLE_DECODER_ERROR));
+              DecoderInitializationException.NO_SUITABLE_DECODER_ERROR));
     } else {
       String decoderName = decoderInfo.name;
       codecIsAdaptive = decoderInfo.adaptive;
@@ -363,36 +354,6 @@ public abstract class MediaCodecTrackRenderer extends SampleSourceTrackRenderer 
       waitingForFirstSyncFrame = true;
       codecCounters.codecInitCount++;
     }
-
-    String decoderName = decoderInfo.name;
-    codecIsAdaptive = decoderInfo.adaptive;
-    codecNeedsEosPropagationWorkaround = codecNeedsEosPropagationWorkaround(decoderName);
-    codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(decoderName);
-    try {
-      long codecInitializingTimestamp = SystemClock.elapsedRealtime();
-      TraceUtil.beginSection("createByCodecName(" + decoderName + ")");
-      codec = MediaCodec.createByCodecName(decoderName);
-      TraceUtil.endSection();
-      TraceUtil.beginSection("configureCodec");
-      configureCodec(codec, decoderName, format.getFrameworkMediaFormatV16(), mediaCrypto);
-      TraceUtil.endSection();
-      TraceUtil.beginSection("codec.start()");
-      codec.start();
-      TraceUtil.endSection();
-      long codecInitializedTimestamp = SystemClock.elapsedRealtime();
-      notifyDecoderInitialized(decoderName, codecInitializedTimestamp,
-          codecInitializedTimestamp - codecInitializingTimestamp);
-      inputBuffers = codec.getInputBuffers();
-      outputBuffers = codec.getOutputBuffers();
-    } catch (Exception e) {
-      notifyAndThrowDecoderInitError(new DecoderInitializationException(format, e, decoderName));
-    }
-    codecHotswapTimeMs = getState() == TrackRenderer.STATE_STARTED ?
-        SystemClock.elapsedRealtime() : -1;
-    inputIndex = -1;
-    outputIndex = -1;
-    waitingForFirstSyncFrame = true;
-    codecCounters.codecInitCount++;
   }
 
   private void notifyAndThrowDecoderInitError(DecoderInitializationException e)
