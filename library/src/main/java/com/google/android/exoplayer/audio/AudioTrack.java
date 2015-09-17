@@ -134,8 +134,10 @@ public final class AudioTrack {
    */
   private static final long MAX_LATENCY_US = 5 * C.MICROS_PER_SECOND;
 
-  /** Value for ac3Bitrate before the bitrate has been calculated. */
-  private static final int UNKNOWN_AC3_BITRATE = 0;
+  /**
+   * Value for {@link #passthroughBitrate} before the bitrate has been calculated.
+   */
+  private static final int UNKNOWN_BITRATE = 0;
 
   private static final int START_NOT_SET = 0;
   private static final int START_IN_SYNC = 1;
@@ -162,6 +164,8 @@ public final class AudioTrack {
    */
   public static boolean failOnSpuriousAudioTimestamp = false;
 
+  private final AudioCapabilities audioCapabilities;
+  private final int streamType;
   private final ConditionVariable releasingConditionVariable;
   private final long[] playheadOffsets;
   private final AudioTrackUtil audioTrackUtil;
@@ -196,12 +200,27 @@ public final class AudioTrack {
   private int temporaryBufferOffset;
   private int temporaryBufferSize;
 
-  private boolean isAc3;
+  /**
+   * Bitrate measured in kilobits per second, if {@link #isPassthrough()} returns true.
+   */
+  private int passthroughBitrate;
 
-  /** Bitrate measured in kilobits per second, if {@link #isAc3} is true. */
-  private int ac3Bitrate;
-
+  /**
+   * Creates an audio track with default audio capabilities (no encoded audio passthrough support).
+   */
   public AudioTrack() {
+    this(null, AudioManager.STREAM_MUSIC);
+  }
+
+  /**
+   * Creates an audio track using the specified audio capabilities and stream type.
+   *
+   * @param audioCapabilities The current audio playback capabilities.
+   * @param streamType The type of audio stream for the underlying {@link android.media.AudioTrack}.
+   */
+  public AudioTrack(AudioCapabilities audioCapabilities, int streamType) {
+    this.audioCapabilities = audioCapabilities;
+    this.streamType = streamType;
     releasingConditionVariable = new ConditionVariable(true);
     if (Util.SDK_INT >= 18) {
       try {
@@ -219,6 +238,15 @@ public final class AudioTrack {
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
     volume = 1.0f;
     startMediaTimeState = START_NOT_SET;
+  }
+
+  /**
+   * Returns whether it is possible to play back input audio in the specified format using encoded
+   * audio passthrough.
+   */
+  public boolean isPassthroughSupported(String mimeType) {
+    return audioCapabilities != null
+        && audioCapabilities.supportsEncoding(getEncodingForMimeType(mimeType));
   }
 
   /**
@@ -301,19 +329,19 @@ public final class AudioTrack {
     releasingConditionVariable.block();
 
     if (sessionId == SESSION_ID_NOT_SET) {
-      audioTrack = new android.media.AudioTrack(AudioManager.STREAM_MUSIC, sampleRate,
-          channelConfig, encoding, bufferSize, android.media.AudioTrack.MODE_STREAM);
+      audioTrack = new android.media.AudioTrack(streamType, sampleRate, channelConfig, encoding,
+          bufferSize, android.media.AudioTrack.MODE_STREAM);
     } else {
       // Re-attach to the same audio session.
-      audioTrack = new android.media.AudioTrack(AudioManager.STREAM_MUSIC, sampleRate,
-          channelConfig, encoding, bufferSize, android.media.AudioTrack.MODE_STREAM, sessionId);
+      audioTrack = new android.media.AudioTrack(streamType, sampleRate, channelConfig, encoding,
+          bufferSize, android.media.AudioTrack.MODE_STREAM, sessionId);
     }
     checkAudioTrackInitialized();
 
     sessionId = audioTrack.getAudioSessionId();
     if (enablePreV21AudioSessionWorkaround) {
       if (Util.SDK_INT < 21) {
-        // The workaround creates an audio track with a one byte buffer on the same session, and
+        // The workaround creates an audio track with a two byte buffer on the same session, and
         // does not release it until this object is released, which keeps the session active.
         if (keepSessionIdAudioTrack != null
             && sessionId != keepSessionIdAudioTrack.getAudioSessionId()) {
@@ -324,15 +352,14 @@ public final class AudioTrack {
           int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
           int encoding = AudioFormat.ENCODING_PCM_16BIT;
           int bufferSize = 2; // Use a two byte buffer, as it is not actually used for playback.
-          keepSessionIdAudioTrack = new android.media.AudioTrack(AudioManager.STREAM_MUSIC,
-              sampleRate, channelConfig, encoding, bufferSize, android.media.AudioTrack.MODE_STATIC,
-              sessionId);
+          keepSessionIdAudioTrack = new android.media.AudioTrack(streamType, sampleRate,
+              channelConfig, encoding, bufferSize, android.media.AudioTrack.MODE_STATIC, sessionId);
         }
       }
     }
 
-    audioTrackUtil.reconfigure(audioTrack, isAc3);
-    setVolume(volume);
+    audioTrackUtil.reconfigure(audioTrack, isPassthrough());
+    setAudioTrackVolume();
 
     return sessionId;
   }
@@ -340,19 +367,23 @@ public final class AudioTrack {
   /**
    * Reconfigures the audio track to play back media in {@code format}, inferring a buffer size from
    * the format.
+   *
+   * @param format Specifies the channel count and sample rate to play back.
+   * @param passthrough Whether to play back using a passthrough encoding.
    */
-  public void reconfigure(MediaFormat format) {
-    reconfigure(format, 0);
+  public void reconfigure(MediaFormat format, boolean passthrough) {
+    reconfigure(format, passthrough, 0);
   }
 
   /**
    * Reconfigures the audio track to play back media in {@code format}.
    *
    * @param format Specifies the channel count and sample rate to play back.
+   * @param passthrough Whether to playback using a passthrough encoding.
    * @param specifiedBufferSize A specific size for the playback buffer in bytes, or 0 to use a
    *     size inferred from the format.
    */
-  public void reconfigure(MediaFormat format, int specifiedBufferSize) {
+  public void reconfigure(MediaFormat format, boolean passthrough, int specifiedBufferSize) {
     int channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
     int channelConfig;
     switch (channelCount) {
@@ -371,16 +402,12 @@ public final class AudioTrack {
       default:
         throw new IllegalArgumentException("Unsupported channel count: " + channelCount);
     }
-
     int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
     String mimeType = format.getString(MediaFormat.KEY_MIME);
-
-    // TODO: Does channelConfig determine channelCount?
-    int encoding = MimeTypes.getEncodingForMimeType(mimeType);
-    boolean isAc3 = encoding == C.ENCODING_AC3 || encoding == C.ENCODING_E_AC3;
+    int encoding = passthrough ? getEncodingForMimeType(mimeType) : AudioFormat.ENCODING_PCM_16BIT;
     if (isInitialized() && this.sampleRate == sampleRate && this.channelConfig == channelConfig
-        && !this.isAc3 && !isAc3) {
-      // We already have an existing audio track with the correct sample rate and channel config.
+        && this.encoding == encoding) {
+      // We already have an audio track with the correct sample rate, encoding and channel config.
       return;
     }
 
@@ -389,8 +416,7 @@ public final class AudioTrack {
     this.encoding = encoding;
     this.sampleRate = sampleRate;
     this.channelConfig = channelConfig;
-    this.isAc3 = isAc3;
-    ac3Bitrate = UNKNOWN_AC3_BITRATE; // Calculated on receiving the first buffer if isAc3 is true.
+    passthroughBitrate = UNKNOWN_BITRATE;
     frameSize = 2 * channelCount; // 2 bytes per 16 bit sample * number of channels.
     minBufferSize = android.media.AudioTrack.getMinBufferSize(sampleRate, channelConfig, encoding);
     Assertions.checkState(minBufferSize != android.media.AudioTrack.ERROR_BAD_VALUE);
@@ -446,7 +472,7 @@ public final class AudioTrack {
     }
 
     // Workarounds for issues with AC-3 passthrough AudioTracks on API versions 21/22:
-    if (Util.SDK_INT <= 22 && isAc3) {
+    if (Util.SDK_INT <= 22 && isPassthrough()) {
       // An AC-3 audio track continues to play data written while it is paused. Stop writing so its
       // buffer empties. See [Internal: b/18899620].
       if (audioTrack.getPlayState() == android.media.AudioTrack.PLAYSTATE_PAUSED) {
@@ -464,8 +490,8 @@ public final class AudioTrack {
 
     int result = 0;
     if (temporaryBufferSize == 0) {
-      if (isAc3 && ac3Bitrate == UNKNOWN_AC3_BITRATE) {
-        ac3Bitrate = Ac3Util.getBitrate(size, sampleRate);
+      if (isPassthrough() && passthroughBitrate == UNKNOWN_BITRATE) {
+        passthroughBitrate = Ac3Util.getBitrate(size, sampleRate);
       }
 
       // This is the first time we've seen this {@code buffer}.
@@ -536,6 +562,17 @@ public final class AudioTrack {
     return result;
   }
 
+  /**
+   * Ensures that the last data passed to {@link #handleBuffer(ByteBuffer, int, int, long)} is
+   * played out in full.
+   */
+  public void handleEndOfStream() {
+    if (audioTrack != null) {
+      // Required to ensure that the media written to the AudioTrack is played out in full.
+      audioTrack.stop();
+    }
+  }
+
   @TargetApi(21)
   private static int writeNonBlockingV21(
       android.media.AudioTrack audioTrack, ByteBuffer buffer, int size) {
@@ -549,32 +586,31 @@ public final class AudioTrack {
             || audioTrackUtil.overrideHasPendingData());
   }
 
-  /** Returns whether enough data has been supplied via {@link #handleBuffer} to begin playback. */
-  public boolean hasEnoughDataToBeginPlayback() {
-    // The value of minBufferSize can be slightly less than what's actually required for playback
-    // to start, hence the multiplication factor.
-    return submittedBytes > (minBufferSize * 3) / 2;
-  }
-
   /** Sets the playback volume. */
   public void setVolume(float volume) {
-    this.volume = volume;
-    if (isInitialized()) {
-      if (Util.SDK_INT >= 21) {
-        setVolumeV21(audioTrack, volume);
-      } else {
-        setVolumeV3(audioTrack, volume);
-      }
+    if (this.volume != volume) {
+      this.volume = volume;
+      setAudioTrackVolume();
+    }
+  }
+
+  private void setAudioTrackVolume() {
+    if (!isInitialized()) {
+      // Do nothing.
+    } else if (Util.SDK_INT >= 21) {
+      setAudioTrackVolumeV21(audioTrack, volume);
+    } else {
+      setAudioTrackVolumeV3(audioTrack, volume);
     }
   }
 
   @TargetApi(21)
-  private static void setVolumeV21(android.media.AudioTrack audioTrack, float volume) {
+  private static void setAudioTrackVolumeV21(android.media.AudioTrack audioTrack, float volume) {
     audioTrack.setVolume(volume);
   }
 
   @SuppressWarnings("deprecation")
-  private static void setVolumeV3(android.media.AudioTrack audioTrack, float volume) {
+  private static void setAudioTrackVolumeV3(android.media.AudioTrack audioTrack, float volume) {
     audioTrack.setStereoVolume(volume, volume);
   }
 
@@ -611,6 +647,7 @@ public final class AudioTrack {
         @Override
         public void run() {
           try {
+            toRelease.flush();
             toRelease.release();
           } finally {
             releasingConditionVariable.open();
@@ -672,9 +709,10 @@ public final class AudioTrack {
       }
     }
 
-    // Don't sample the timestamp and latency if this is an AC-3 passthrough AudioTrack, as the
-    // returned values cause audio/video synchronization to be incorrect.
-    if (!isAc3 && systemClockUs - lastTimestampSampleTimeUs >= MIN_TIMESTAMP_SAMPLE_INTERVAL_US) {
+    // Don't sample the timestamp and latency if this is a passthrough AudioTrack, as the returned
+    // values cause audio/video synchronization to be incorrect.
+    if (!isPassthrough()
+        && systemClockUs - lastTimestampSampleTimeUs >= MIN_TIMESTAMP_SAMPLE_INTERVAL_US) {
       audioTimestampSet = audioTrackUtil.updateTimestamp();
       if (audioTimestampSet) {
         // Perform sanity checks on the timestamp.
@@ -754,9 +792,9 @@ public final class AudioTrack {
   }
 
   private long bytesToFrames(long byteCount) {
-    if (isAc3) {
-      return
-          ac3Bitrate == UNKNOWN_AC3_BITRATE ? 0L : byteCount * 8 * sampleRate / (1000 * ac3Bitrate);
+    if (isPassthrough()) {
+      return passthroughBitrate == UNKNOWN_BITRATE
+          ? 0L : byteCount * 8 * sampleRate / (1000 * passthroughBitrate);
     } else {
       return byteCount / frameSize;
     }
@@ -777,6 +815,20 @@ public final class AudioTrack {
     lastPlayheadSampleTimeUs = 0;
     audioTimestampSet = false;
     lastTimestampSampleTimeUs = 0;
+  }
+
+  private boolean isPassthrough() {
+    return encoding == C.ENCODING_AC3 || encoding == C.ENCODING_E_AC3;
+  }
+
+  private static int getEncodingForMimeType(String mimeType) {
+    if (MimeTypes.AUDIO_AC3.equals(mimeType)) {
+      return C.ENCODING_AC3;
+    }
+    if (MimeTypes.AUDIO_EC3.equals(mimeType)) {
+      return C.ENCODING_E_AC3;
+    }
+    return AudioFormat.ENCODING_INVALID;
   }
 
   /**

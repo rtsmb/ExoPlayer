@@ -52,12 +52,6 @@ import android.util.Log;
   private static final float LINE_HEIGHT_FRACTION = 0.0533f;
 
   /**
-   * The default bottom padding to apply when {@link Cue#line} is {@link Cue#UNSET_VALUE}, as a
-   * fraction of the viewport height.
-   */
-  private static final float DEFAULT_BOTTOM_PADDING_FRACTION = 0.08f;
-
-  /**
    * Temporary rectangle used for computing line bounds.
    */
   private final RectF lineBounds = new RectF();
@@ -77,11 +71,14 @@ import android.util.Log;
   private CharSequence cueText;
   private int cuePosition;
   private Alignment cueAlignment;
+  private boolean applyEmbeddedStyles;
   private int foregroundColor;
   private int backgroundColor;
   private int windowColor;
   private int edgeColor;
   private int edgeType;
+  private float fontScale;
+  private float bottomPaddingFraction;
   private int parentLeft;
   private int parentTop;
   private int parentRight;
@@ -125,52 +122,66 @@ import android.util.Log;
    * which the same parameters are passed.
    *
    * @param cue The cue to draw.
+   * @param applyEmbeddedStyles Whether styling embedded within the cue should be applied.
    * @param style The style to use when drawing the cue text.
    * @param fontScale The font scale.
+   * @param bottomPaddingFraction The bottom padding fraction to apply when {@link Cue#line} is
+   *     {@link Cue#UNSET_VALUE}, as a fraction of the viewport height
    * @param canvas The canvas into which to draw.
    * @param cueBoxLeft The left position of the enclosing cue box.
    * @param cueBoxTop The top position of the enclosing cue box.
    * @param cueBoxRight The right position of the enclosing cue box.
    * @param cueBoxBottom The bottom position of the enclosing cue box.
    */
-  public void draw(Cue cue, CaptionStyleCompat style, float fontScale, Canvas canvas,
-      int cueBoxLeft, int cueBoxTop, int cueBoxRight, int cueBoxBottom) {
-    if (TextUtils.isEmpty(cue.text)) {
+  public void draw(Cue cue, boolean applyEmbeddedStyles, CaptionStyleCompat style, float fontScale,
+      float bottomPaddingFraction, Canvas canvas, int cueBoxLeft, int cueBoxTop, int cueBoxRight,
+      int cueBoxBottom) {
+    CharSequence cueText = cue.text;
+    if (TextUtils.isEmpty(cueText)) {
       // Nothing to draw.
       return;
     }
-
-    if (TextUtils.equals(cueText, cue.text)
-        && cuePosition == cue.position
-        && Util.areEqual(cueAlignment, cue.alignment)
-        && foregroundColor == style.foregroundColor
-        && backgroundColor == style.backgroundColor
-        && windowColor == style.windowColor
-        && edgeType == style.edgeType
-        && edgeColor == style.edgeColor
-        && Util.areEqual(textPaint.getTypeface(), style.typeface)
-        && parentLeft == cueBoxLeft
-        && parentTop == cueBoxTop
-        && parentRight == cueBoxRight
-        && parentBottom == cueBoxBottom) {
+    if (!applyEmbeddedStyles) {
+      // Strip out any embedded styling.
+      cueText = cueText.toString();
+    }
+    if (areCharSequencesEqual(this.cueText, cueText)
+        && this.cuePosition == cue.position
+        && Util.areEqual(this.cueAlignment, cue.alignment)
+        && this.applyEmbeddedStyles == applyEmbeddedStyles
+        && this.foregroundColor == style.foregroundColor
+        && this.backgroundColor == style.backgroundColor
+        && this.windowColor == style.windowColor
+        && this.edgeType == style.edgeType
+        && this.edgeColor == style.edgeColor
+        && Util.areEqual(this.textPaint.getTypeface(), style.typeface)
+        && this.fontScale == fontScale
+        && this.bottomPaddingFraction == bottomPaddingFraction
+        && this.parentLeft == cueBoxLeft
+        && this.parentTop == cueBoxTop
+        && this.parentRight == cueBoxRight
+        && this.parentBottom == cueBoxBottom) {
       // We can use the cached layout.
       drawLayout(canvas);
       return;
     }
 
-    cueText = cue.text;
-    cuePosition = cue.position;
-    cueAlignment = cue.alignment;
-    foregroundColor = style.foregroundColor;
-    backgroundColor = style.backgroundColor;
-    windowColor = style.windowColor;
-    edgeType = style.edgeType;
-    edgeColor = style.edgeColor;
-    textPaint.setTypeface(style.typeface);
-    parentLeft = cueBoxLeft;
-    parentTop = cueBoxTop;
-    parentRight = cueBoxRight;
-    parentBottom = cueBoxBottom;
+    this.cueText = cueText;
+    this.cuePosition = cue.position;
+    this.cueAlignment = cue.alignment;
+    this.applyEmbeddedStyles = applyEmbeddedStyles;
+    this.foregroundColor = style.foregroundColor;
+    this.backgroundColor = style.backgroundColor;
+    this.windowColor = style.windowColor;
+    this.edgeType = style.edgeType;
+    this.edgeColor = style.edgeColor;
+    this.textPaint.setTypeface(style.typeface);
+    this.fontScale = fontScale;
+    this.bottomPaddingFraction = bottomPaddingFraction;
+    this.parentLeft = cueBoxLeft;
+    this.parentTop = cueBoxTop;
+    this.parentRight = cueBoxRight;
+    this.parentBottom = cueBoxBottom;
 
     int parentWidth = parentRight - parentLeft;
     int parentHeight = parentBottom - parentTop;
@@ -199,7 +210,7 @@ import android.util.Log;
     int textLeft = (parentWidth - textWidth) / 2;
     int textRight = textLeft + textWidth;
     int textTop = parentBottom - textHeight
-        - (int) (parentHeight * DEFAULT_BOTTOM_PADDING_FRACTION);
+        - (int) (parentHeight * bottomPaddingFraction);
     int textBottom = textTop + textHeight;
 
     if (cue.position != Cue.UNSET_VALUE) {
@@ -293,6 +304,17 @@ import android.util.Log;
     textPaint.setShadowLayer(0, 0, 0, 0);
 
     canvas.restoreToCount(saveCount);
+  }
+
+  /**
+   * This method is used instead of {@link TextUtils#equals(CharSequence, CharSequence)} because the
+   * latter only checks the text of each sequence, and does not check for equality of styling that
+   * may be embedded within the {@link CharSequence}s.
+   */
+  private static boolean areCharSequencesEqual(CharSequence first, CharSequence second) {
+    // Some CharSequence implementations don't perform a cheap referential equality check in their
+    // equals methods, so we perform one explicitly here.
+    return first == second || (first != null && first.equals(second));
   }
 
 }

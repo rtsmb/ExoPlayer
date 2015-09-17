@@ -28,11 +28,19 @@ import java.util.List;
  */
 public final class SubtitleLayout extends View {
 
+  /**
+   * The default bottom padding to apply when {@link Cue#line} is {@link Cue#UNSET_VALUE}, as a
+   * fraction of the viewport height.
+   */
+  public static final float DEFAULT_BOTTOM_PADDING_FRACTION = 0.08f;
+
   private final List<CuePainter> painters;
 
   private List<Cue> cues;
   private float fontScale;
+  private boolean applyEmbeddedStyles;
   private CaptionStyleCompat style;
+  private float bottomPaddingFraction;
 
   public SubtitleLayout(Context context) {
     this(context, null);
@@ -42,7 +50,9 @@ public final class SubtitleLayout extends View {
     super(context, attrs);
     painters = new ArrayList<>();
     fontScale = 1;
+    applyEmbeddedStyles = true;
     style = CaptionStyleCompat.DEFAULT;
+    bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
   }
 
   /**
@@ -79,7 +89,21 @@ public final class SubtitleLayout extends View {
   }
 
   /**
-   * Configures the view according to the given style.
+   * Sets whether styling embedded within the cues should be applied. Enabled by default.
+   *
+   * @param applyEmbeddedStyles Whether styling embedded within the cues should be applied.
+   */
+  public void setApplyEmbeddedStyles(boolean applyEmbeddedStyles) {
+    if (this.applyEmbeddedStyles == applyEmbeddedStyles) {
+      return;
+    }
+    this.applyEmbeddedStyles = applyEmbeddedStyles;
+    // Invalidate to trigger drawing.
+    invalidate();
+  }
+
+  /**
+   * Sets the caption style.
    *
    * @param style A style for the view.
    */
@@ -92,12 +116,27 @@ public final class SubtitleLayout extends View {
     invalidate();
   }
 
+  /**
+   * Sets the bottom padding fraction to apply when {@link Cue#line} is {@link Cue#UNSET_VALUE},
+   * as a fraction of the viewport height.
+   *
+   * @param bottomPaddingFraction The bottom padding fraction.
+   */
+  public void setBottomPaddingFraction(float bottomPaddingFraction) {
+    if (this.bottomPaddingFraction == bottomPaddingFraction) {
+      return;
+    }
+    this.bottomPaddingFraction = bottomPaddingFraction;
+    // Invalidate to trigger drawing.
+    invalidate();
+  }
+
   @Override
   public void dispatchDraw(Canvas canvas) {
     int cueCount = (cues == null) ? 0 : cues.size();
     for (int i = 0; i < cueCount; i++) {
-      painters.get(i).draw(cues.get(i), style, fontScale, canvas, getLeft(), getTop(), getRight(),
-          getBottom());
+      painters.get(i).draw(cues.get(i), applyEmbeddedStyles, style, fontScale,
+          bottomPaddingFraction, canvas, getLeft(), getTop(), getRight(), getBottom());
     }
   }
 

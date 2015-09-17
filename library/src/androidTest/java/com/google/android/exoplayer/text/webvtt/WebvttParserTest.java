@@ -15,8 +15,6 @@
  */
 package com.google.android.exoplayer.text.webvtt;
 
-import com.google.android.exoplayer.C;
-
 import android.test.InstrumentationTestCase;
 
 import java.io.IOException;
@@ -39,7 +37,7 @@ public class WebvttParserTest extends InstrumentationTestCase {
         getInstrumentation().getContext().getResources().getAssets().open(EMPTY_WEBVTT_FILE);
 
     try {
-      parser.parse(inputStream, C.UTF8_NAME, 0);
+      parser.parse(inputStream);
       fail("Expected IOException");
     } catch (IOException expected) {
       // Do nothing.
@@ -50,24 +48,22 @@ public class WebvttParserTest extends InstrumentationTestCase {
     WebvttParser parser = new WebvttParser();
     InputStream inputStream =
         getInstrumentation().getContext().getResources().getAssets().open(TYPICAL_WEBVTT_FILE);
-    WebvttSubtitle subtitle = parser.parse(inputStream, C.UTF8_NAME, 0);
+    WebvttSubtitle subtitle = parser.parse(inputStream);
 
-    // test start time and event count
-    long startTimeUs = 5000000;
-    assertEquals(startTimeUs, subtitle.getStartTime());
+    // test event count
     assertEquals(4, subtitle.getEventTimeCount());
 
     // test first cue
-    assertEquals(startTimeUs, subtitle.getEventTime(0));
+    assertEquals(0, subtitle.getEventTime(0));
     assertEquals("This is the first subtitle.",
         subtitle.getCues(subtitle.getEventTime(0)).get(0).text.toString());
-    assertEquals(startTimeUs + 1234000, subtitle.getEventTime(1));
+    assertEquals(1234000, subtitle.getEventTime(1));
 
     // test second cue
-    assertEquals(startTimeUs + 2345000, subtitle.getEventTime(2));
+    assertEquals(2345000, subtitle.getEventTime(2));
     assertEquals("This is the second subtitle.",
         subtitle.getCues(subtitle.getEventTime(2)).get(0).text.toString());
-    assertEquals(startTimeUs + 3456000, subtitle.getEventTime(3));
+    assertEquals(3456000, subtitle.getEventTime(3));
   }
 
   public void testParseTypicalWithIdsWebvttFile() throws IOException {
@@ -75,24 +71,22 @@ public class WebvttParserTest extends InstrumentationTestCase {
     InputStream inputStream =
         getInstrumentation().getContext().getResources().getAssets()
           .open(TYPICAL_WITH_IDS_WEBVTT_FILE);
-    WebvttSubtitle subtitle = parser.parse(inputStream, C.UTF8_NAME, 0);
+    WebvttSubtitle subtitle = parser.parse(inputStream);
 
-    // test start time and event count
-    long startTimeUs = 5000000;
-    assertEquals(startTimeUs, subtitle.getStartTime());
+    // test event count
     assertEquals(4, subtitle.getEventTimeCount());
 
     // test first cue
-    assertEquals(startTimeUs, subtitle.getEventTime(0));
+    assertEquals(0, subtitle.getEventTime(0));
     assertEquals("This is the first subtitle.",
         subtitle.getCues(subtitle.getEventTime(0)).get(0).text.toString());
-    assertEquals(startTimeUs + 1234000, subtitle.getEventTime(1));
+    assertEquals(1234000, subtitle.getEventTime(1));
 
     // test second cue
-    assertEquals(startTimeUs + 2345000, subtitle.getEventTime(2));
+    assertEquals(2345000, subtitle.getEventTime(2));
     assertEquals("This is the second subtitle.",
         subtitle.getCues(subtitle.getEventTime(2)).get(0).text.toString());
-    assertEquals(startTimeUs + 3456000, subtitle.getEventTime(3));
+    assertEquals(3456000, subtitle.getEventTime(3));
   }
 
   public void testParseTypicalWithTagsWebvttFile() throws IOException {
@@ -100,47 +94,44 @@ public class WebvttParserTest extends InstrumentationTestCase {
     InputStream inputStream =
         getInstrumentation().getContext().getResources().getAssets()
           .open(TYPICAL_WITH_TAGS_WEBVTT_FILE);
-    WebvttSubtitle subtitle = parser.parse(inputStream, C.UTF8_NAME, 0);
+    WebvttSubtitle subtitle = parser.parse(inputStream);
 
-    // test start time and event count
-    long startTimeUs = 5000000;
-    assertEquals(startTimeUs, subtitle.getStartTime());
+    // test event count
     assertEquals(8, subtitle.getEventTimeCount());
 
     // test first cue
-    assertEquals(startTimeUs, subtitle.getEventTime(0));
+    assertEquals(0, subtitle.getEventTime(0));
     assertEquals("This is the first subtitle.",
         subtitle.getCues(subtitle.getEventTime(0)).get(0).text.toString());
-    assertEquals(startTimeUs + 1234000, subtitle.getEventTime(1));
+    assertEquals(1234000, subtitle.getEventTime(1));
 
     // test second cue
-    assertEquals(startTimeUs + 2345000, subtitle.getEventTime(2));
+    assertEquals(2345000, subtitle.getEventTime(2));
     assertEquals("This is the second subtitle.",
         subtitle.getCues(subtitle.getEventTime(2)).get(0).text.toString());
-    assertEquals(startTimeUs + 3456000, subtitle.getEventTime(3));
+    assertEquals(3456000, subtitle.getEventTime(3));
 
     // test third cue
-    assertEquals(startTimeUs + 4000000, subtitle.getEventTime(4));
+    assertEquals(4000000, subtitle.getEventTime(4));
     assertEquals("This is the third subtitle.",
         subtitle.getCues(subtitle.getEventTime(4)).get(0).text.toString());
-    assertEquals(startTimeUs + 5000000, subtitle.getEventTime(5));
+    assertEquals(5000000, subtitle.getEventTime(5));
 
     // test fourth cue
-    assertEquals(startTimeUs + 6000000, subtitle.getEventTime(6));
+    assertEquals(6000000, subtitle.getEventTime(6));
     assertEquals("This is the <fourth> &subtitle.",
         subtitle.getCues(subtitle.getEventTime(6)).get(0).text.toString());
-    assertEquals(startTimeUs + 7000000, subtitle.getEventTime(7));
+    assertEquals(7000000, subtitle.getEventTime(7));
   }
 
   public void testParseLiveTypicalWebvttFile() throws IOException {
     WebvttParser parser = new WebvttParser();
     InputStream inputStream =
         getInstrumentation().getContext().getResources().getAssets().open(LIVE_TYPICAL_WEBVTT_FILE);
-    WebvttSubtitle subtitle = parser.parse(inputStream, C.UTF8_NAME, 0);
+    WebvttSubtitle subtitle = parser.parse(inputStream);
 
-    // test start time and event count
+    // test event count
     long startTimeUs = 0;
-    assertEquals(startTimeUs, subtitle.getStartTime());
     assertEquals(4, subtitle.getEventTimeCount());
 
     // test first cue

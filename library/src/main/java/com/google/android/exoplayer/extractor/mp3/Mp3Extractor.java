@@ -74,17 +74,21 @@ public final class Mp3Extractor implements Extractor {
   public boolean sniff(ExtractorInput input) throws IOException, InterruptedException {
     ParsableByteArray scratch = new ParsableByteArray(4);
     int startPosition = 0;
-    input.peekFully(scratch.data, 0, 3);
-    if (scratch.readUnsignedInt24() == ID3_TAG) {
+    while (true) {
+      input.peekFully(scratch.data, 0, 3);
+      scratch.setPosition(0);
+      if (scratch.readUnsignedInt24() != ID3_TAG) {
+        break;
+      }
       input.advancePeekPosition(3);
       input.peekFully(scratch.data, 0, 4);
       int headerLength = ((scratch.data[0] & 0x7F) << 21) | ((scratch.data[1] & 0x7F) << 14)
           | ((scratch.data[2] & 0x7F) << 7) | (scratch.data[3] & 0x7F);
       input.advancePeekPosition(headerLength);
-      startPosition = 3 + 3 + 4 + headerLength;
-    } else {
-      input.resetPeekPosition();
+      startPosition += 3 + 3 + 4 + headerLength;
     }
+    input.resetPeekPosition();
+    input.advancePeekPosition(startPosition);
 
     // Try to find four consecutive valid MPEG audio frames.
     int headerPosition = startPosition;
@@ -187,7 +191,9 @@ public final class Mp3Extractor implements Extractor {
     return RESULT_CONTINUE;
   }
 
-  /** Attempts to read an MPEG audio header at the current offset, resynchronizing if necessary. */
+  /**
+   * Attempts to read an MPEG audio header at the current offset, resynchronizing if necessary.
+   */
   private long maybeResynchronize(ExtractorInput extractorInput)
       throws IOException, InterruptedException {
     inputBuffer.mark();
@@ -238,9 +244,12 @@ public final class Mp3Extractor implements Extractor {
 
     // Skip any ID3 header at the start of the file.
     if (startPosition == 0) {
-      inputBuffer.read(extractorInput, scratch.data, 0, 3);
-      scratch.setPosition(0);
-      if (scratch.readUnsignedInt24() == ID3_TAG) {
+      while (true) {
+        inputBuffer.read(extractorInput, scratch.data, 0, 3);
+        scratch.setPosition(0);
+        if (scratch.readUnsignedInt24() != ID3_TAG) {
+          break;
+        }
         extractorInput.skipFully(3);
         extractorInput.readFully(scratch.data, 0, 4);
         int headerLength = ((scratch.data[0] & 0x7F) << 21) | ((scratch.data[1] & 0x7F) << 14)
@@ -248,9 +257,8 @@ public final class Mp3Extractor implements Extractor {
         extractorInput.skipFully(headerLength);
         inputBuffer.reset();
         startPosition = getPosition(extractorInput, inputBuffer);
-      } else {
-        inputBuffer.returnToMark();
       }
+      inputBuffer.returnToMark();
     }
 
     // Try to find four consecutive valid MPEG audio frames.
@@ -306,8 +314,8 @@ public final class Mp3Extractor implements Extractor {
       setupSeeker(extractorInput, headerPosition);
       extractorOutput.seekMap(seeker);
       trackOutput.format(MediaFormat.createAudioFormat(synchronizedHeader.mimeType,
-          MpegAudioHeader.MAX_FRAME_SIZE_BYTES, seeker.getDurationUs(), synchronizedHeader.channels,
-          synchronizedHeader.sampleRate, null));
+          MediaFormat.NO_VALUE, MpegAudioHeader.MAX_FRAME_SIZE_BYTES, seeker.getDurationUs(),
+          synchronizedHeader.channels, synchronizedHeader.sampleRate, null));
     }
 
     return headerPosition;

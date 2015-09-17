@@ -17,6 +17,7 @@ package com.google.android.exoplayer.demo;
 
 import com.google.android.exoplayer.AspectRatioFrameLayout;
 import com.google.android.exoplayer.ExoPlayer;
+import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.audio.AudioCapabilities;
 import com.google.android.exoplayer.audio.AudioCapabilitiesReceiver;
 import com.google.android.exoplayer.demo.player.DashRendererBuilder;
@@ -33,6 +34,7 @@ import com.google.android.exoplayer.text.CaptionStyleCompat;
 import com.google.android.exoplayer.text.Cue;
 import com.google.android.exoplayer.text.SubtitleLayout;
 import com.google.android.exoplayer.util.DebugTextViewHelper;
+import com.google.android.exoplayer.util.MimeTypes;
 import com.google.android.exoplayer.util.Util;
 import com.google.android.exoplayer.util.VerboseLogUtil;
 
@@ -66,6 +68,7 @@ import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -119,7 +122,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
   private String contentId;
 
   private AudioCapabilitiesReceiver audioCapabilitiesReceiver;
-  private AudioCapabilities audioCapabilities;
 
   // Activity lifecycle
 
@@ -154,7 +156,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
         return false;
       }
     });
-    audioCapabilitiesReceiver = new AudioCapabilitiesReceiver(getApplicationContext(), this);
 
     shutterView = findViewById(R.id.shutter);
     debugRootView = findViewById(R.id.controls_root);
@@ -179,15 +180,20 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     if (currentHandler != defaultCookieManager) {
       CookieHandler.setDefault(defaultCookieManager);
     }
+
+    audioCapabilitiesReceiver = new AudioCapabilitiesReceiver(this, this);
+    audioCapabilitiesReceiver.register();
   }
 
   @Override
   public void onResume() {
     super.onResume();
     configureSubtitleView();
-
-    // The player will be prepared on receiving audio capabilities.
-    audioCapabilitiesReceiver.register();
+    if (player == null) {
+      preparePlayer(true);
+    } else {
+      player.setBackgrounded(false);
+    }
   }
 
   @Override
@@ -198,13 +204,13 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     } else {
       player.setBackgrounded(true);
     }
-    audioCapabilitiesReceiver.unregister();
     shutterView.setVisibility(View.VISIBLE);
   }
 
   @Override
   public void onDestroy() {
     super.onDestroy();
+    audioCapabilitiesReceiver.unregister();
     releasePlayer();
   }
 
@@ -213,7 +219,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
   @Override
   public void onClick(View view) {
     if (view == retryButton) {
-      preparePlayer();
+      preparePlayer(true);
     }
   }
 
@@ -221,14 +227,14 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
 
   @Override
   public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
-    boolean audioCapabilitiesChanged = !audioCapabilities.equals(this.audioCapabilities);
-    if (player == null || audioCapabilitiesChanged) {
-      this.audioCapabilities = audioCapabilities;
-      releasePlayer();
-      preparePlayer();
-    } else if (player != null) {
-      player.setBackgrounded(false);
+    if (player == null) {
+      return;
     }
+    boolean backgrounded = player.getBackgrounded();
+    boolean playWhenReady = player.getPlayWhenReady();
+    releasePlayer();
+    preparePlayer(playWhenReady);
+    player.setBackgrounded(backgrounded);
   }
 
   // Internal methods
@@ -241,9 +247,9 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
             new SmoothStreamingTestMediaDrmCallback());
       case TYPE_DASH:
         return new DashRendererBuilder(this, userAgent, contentUri.toString(),
-            new WidevineTestMediaDrmCallback(contentId), audioCapabilities);
+            new WidevineTestMediaDrmCallback(contentId));
       case TYPE_HLS:
-        return new HlsRendererBuilder(this, userAgent, contentUri.toString(), audioCapabilities);
+        return new HlsRendererBuilder(this, userAgent, contentUri.toString());
       case TYPE_OTHER:
         return new ExtractorRendererBuilder(this, userAgent, contentUri);
       default:
@@ -251,7 +257,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     }
   }
 
-  private void preparePlayer() {
+  private void preparePlayer(boolean playWhenReady) {
     if (player == null) {
       player = new DemoPlayer(getRendererBuilder());
       player.addListener(this);
@@ -275,7 +281,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
       updateButtonVisibilities();
     }
     player.setSurface(surfaceView.getHolder().getSurface());
-    player.setPlayWhenReady(true);
+    player.setPlayWhenReady(playWhenReady);
   }
 
   private void releasePlayer() {
@@ -338,7 +344,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
   }
 
   @Override
-  public void onVideoSizeChanged(int width, int height, float pixelWidthAspectRatio) {
+  public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees,
+      float pixelWidthAspectRatio) {
     shutterView.setVisibility(View.GONE);
     videoFrame.setAspectRatio(
         height == 0 ? 1 : (width * pixelWidthAspectRatio) / height);
@@ -431,23 +438,49 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     });
     Menu menu = popup.getMenu();
     // ID_OFFSET ensures we avoid clashing with Menu.NONE (which equals 0)
-    menu.add(MENU_GROUP_TRACKS, DemoPlayer.DISABLED_TRACK + ID_OFFSET, Menu.NONE, R.string.off);
-    if (trackCount == 1 && TextUtils.isEmpty(player.getTrackName(trackType, 0))) {
-      menu.add(MENU_GROUP_TRACKS, DemoPlayer.PRIMARY_TRACK + ID_OFFSET, Menu.NONE, R.string.on);
-    } else {
-      for (int i = 0; i < trackCount; i++) {
-        menu.add(MENU_GROUP_TRACKS, i + ID_OFFSET, Menu.NONE, player.getTrackName(trackType, i));
-      }
+    menu.add(MENU_GROUP_TRACKS, DemoPlayer.TRACK_DISABLED + ID_OFFSET, Menu.NONE, R.string.off);
+    for (int i = 0; i < trackCount; i++) {
+      menu.add(MENU_GROUP_TRACKS, i + ID_OFFSET, Menu.NONE,
+          buildTrackName(player.getTrackFormat(trackType, i)));
     }
     menu.setGroupCheckable(MENU_GROUP_TRACKS, true, true);
-    menu.findItem(player.getSelectedTrackIndex(trackType) + ID_OFFSET).setChecked(true);
+    menu.findItem(player.getSelectedTrack(trackType) + ID_OFFSET).setChecked(true);
+  }
+
+  private static String buildTrackName(MediaFormat format) {
+    if (format.adaptive) {
+      return "auto";
+    } else if (MimeTypes.isVideo(format.mimeType)) {
+      return buildResolutionString(format) + buildBitrateString(format);
+    } else if (MimeTypes.isAudio(format.mimeType)) {
+      return buildAudioPropertyString(format) + buildBitrateString(format);
+    } else if (!TextUtils.isEmpty(format.language)) {
+      return format.language + buildBitrateString(format);
+    } else {
+      return "unknown" + buildBitrateString(format);
+    }
+  }
+
+  private static String buildResolutionString(MediaFormat format) {
+    return format.width == MediaFormat.NO_VALUE || format.height == MediaFormat.NO_VALUE
+        ? "video" : format.width + "x" + format.height;
+  }
+
+  private static String buildAudioPropertyString(MediaFormat format) {
+    return format.channelCount == MediaFormat.NO_VALUE || format.sampleRate == MediaFormat.NO_VALUE
+        ? "audio" : format.channelCount + "ch, " + format.sampleRate + "Hz";
+  }
+
+  private static String buildBitrateString(MediaFormat format) {
+    return format.bitrate == MediaFormat.NO_VALUE ? ""
+        : String.format(Locale.US, " (%.2fMbit)", format.bitrate / 1000000f);
   }
 
   private boolean onTrackItemClick(MenuItem item, int type) {
     if (player == null || item.getGroupId() != MENU_GROUP_TRACKS) {
       return false;
     }
-    player.selectTrack(type, item.getItemId() - ID_OFFSET);
+    player.setSelectedTrack(type, item.getItemId() - ID_OFFSET);
     return true;
   }
 

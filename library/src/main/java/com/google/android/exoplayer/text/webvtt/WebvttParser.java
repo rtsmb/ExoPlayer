@@ -38,11 +38,9 @@ import java.util.regex.Pattern;
  * <p>
  * @see <a href="http://dev.w3.org/html5/webvtt">WebVTT specification</a>
  */
-public class WebvttParser implements SubtitleParser {
+public final class WebvttParser implements SubtitleParser {
 
   private static final String TAG = "WebvttParser";
-
-  private static final long SAMPLING_RATE = 90;
 
   private static final String WEBVTT_FILE_HEADER_STRING = "^\uFEFF?WEBVTT((\\u0020|\u0009).*)?$";
   private static final Pattern WEBVTT_FILE_HEADER =
@@ -62,10 +60,6 @@ public class WebvttParser implements SubtitleParser {
   private static final String WEBVTT_CUE_SETTING_STRING = "\\S*:\\S*";
   private static final Pattern WEBVTT_CUE_SETTING = Pattern.compile(WEBVTT_CUE_SETTING_STRING);
 
-  private static final Pattern MEDIA_TIMESTAMP_OFFSET =
-      Pattern.compile(C.WEBVTT_EXO_HEADER_OFFSET + "\\-?\\d+");
-  private static final Pattern MEDIA_TIMESTAMP = Pattern.compile("MPEGTS:\\d+");
-
   private static final String NON_NUMERIC_STRING = ".*[^0-9].*";
 
   private final StringBuilder textBuilder;
@@ -80,10 +74,10 @@ public class WebvttParser implements SubtitleParser {
   }
 
   /**
-   * @param strictParsing If true, {@link #parse(InputStream, String, long)} will throw a
-   *     {@link ParserException} if the stream contains invalid data. If false, the parser will
-   *     make a best effort to ignore minor errors in the stream. Note however that a
-   *     {@link ParserException} will still be thrown when this is not possible.
+   * @param strictParsing If true, {@link #parse(InputStream)} will throw a {@link ParserException}
+   *     if the stream contains invalid data. If false, the parser will make a best effort to ignore
+   *     minor errors in the stream. Note however that a {@link ParserException} will still be
+   *     thrown when this is not possible.
    */
   public WebvttParser(boolean strictParsing) {
     this.strictParsing = strictParsing;
@@ -91,36 +85,15 @@ public class WebvttParser implements SubtitleParser {
   }
 
   @Override
-  public final WebvttSubtitle parse(InputStream inputStream, String inputEncoding, long startTimeUs)
-      throws IOException {
+  public final WebvttSubtitle parse(InputStream inputStream) throws IOException {
     ArrayList<WebvttCue> subtitles = new ArrayList<>();
-    long mediaTimestampUs = startTimeUs;
-    long mediaTimestampOffsetUs = 0;
 
     BufferedReader webvttData = new BufferedReader(new InputStreamReader(inputStream, C.UTF8_NAME));
     String line;
 
-    // file should start with "WEBVTT" on the first line or "EXO-HEADER"
+    // file should start with "WEBVTT"
     line = webvttData.readLine();
-    if (line == null) {
-      throw new ParserException("Expected WEBVTT or EXO-HEADER. Got null");
-    }
-
-    if (line.startsWith(C.WEBVTT_EXO_HEADER)) {
-      // parse the timestamp offset, if present
-      Matcher matcher = MEDIA_TIMESTAMP_OFFSET.matcher(line);
-      if (matcher.find()) {
-        mediaTimestampOffsetUs = Long.parseLong(matcher.group().substring(7));
-      }
-
-      // read the next line, which should now be WEBVTT
-      line = webvttData.readLine();
-      if (line == null) {
-        throw new ParserException("Expected WEBVTT. Got null");
-      }
-    }
-
-    if (!WEBVTT_FILE_HEADER.matcher(line).matches()) {
+    if (line == null || !WEBVTT_FILE_HEADER.matcher(line).matches()) {
       throw new ParserException("Expected WEBVTT. Got " + line);
     }
 
@@ -135,21 +108,11 @@ public class WebvttParser implements SubtitleParser {
         break;
       }
 
-      Matcher matcher = WEBVTT_METADATA_HEADER.matcher(line);
-      if (!matcher.find()) {
-        handleNoncompliantLine(line);
-      }
-
-      if (line.startsWith("X-TIMESTAMP-MAP")) {
-        // parse the media timestamp
-        Matcher timestampMatcher = MEDIA_TIMESTAMP.matcher(line);
-        if (!timestampMatcher.find()) {
-          throw new ParserException("X-TIMESTAMP-MAP doesn't contain media timestamp: " + line);
-        } else {
-          mediaTimestampUs = (Long.parseLong(timestampMatcher.group().substring(7)) * 1000)
-              / SAMPLING_RATE + mediaTimestampOffsetUs;
+      if (strictParsing) {
+        Matcher matcher = WEBVTT_METADATA_HEADER.matcher(line);
+        if (!matcher.find()) {
+          throw new ParserException("Unexpected line: " + line);
         }
-        mediaTimestampUs = getAdjustedStartTime(mediaTimestampUs);
       }
     }
 
@@ -178,7 +141,7 @@ public class WebvttParser implements SubtitleParser {
       if (!matcher.find()) {
         throw new ParserException("Expected cue start time: " + line);
       } else {
-        startTime = parseTimestampUs(matcher.group()) + mediaTimestampUs;
+        startTime = parseTimestampUs(matcher.group());
       }
 
       // parse end timestamp
@@ -187,7 +150,7 @@ public class WebvttParser implements SubtitleParser {
         throw new ParserException("Expected cue end time: " + line);
       } else {
         endTimeString = matcher.group();
-        endTime = parseTimestampUs(endTimeString) + mediaTimestampUs;
+        endTime = parseTimestampUs(endTimeString);
       }
 
       // parse the (optional) cue setting list
@@ -249,22 +212,12 @@ public class WebvttParser implements SubtitleParser {
       subtitles.add(cue);
     }
 
-    return new WebvttSubtitle(subtitles, mediaTimestampUs);
+    return new WebvttSubtitle(subtitles);
   }
 
   @Override
   public final boolean canParse(String mimeType) {
     return MimeTypes.TEXT_VTT.equals(mimeType);
-  }
-
-  protected long getAdjustedStartTime(long startTimeUs) {
-    return startTimeUs;
-  }
-
-  protected void handleNoncompliantLine(String line) throws ParserException {
-    if (strictParsing) {
-      throw new ParserException("Unexpected line: " + line);
-    }
   }
 
   private static int parseIntPercentage(String s) throws NumberFormatException {
