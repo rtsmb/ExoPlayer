@@ -205,6 +205,9 @@ public final class AudioTrack {
    */
   private int passthroughBitrate;
 
+
+  private long wallClockReferenceTime = C.UNKNOWN_TIME_US;
+
   /**
    * Creates an audio track with default audio capabilities (no encoded audio passthrough support).
    */
@@ -501,6 +504,9 @@ public final class AudioTrack {
 
       if (startMediaTimeState == START_NOT_SET) {
         startMediaTimeUs = Math.max(0, bufferStartTime);
+
+        wallClockReferenceTime = System.currentTimeMillis();
+
         startMediaTimeState = START_IN_SYNC;
       } else {
         // Sanity check that bufferStartTime is consistent with the expected value.
@@ -515,7 +521,9 @@ public final class AudioTrack {
         if (startMediaTimeState == START_NEED_SYNC) {
           // Adjust startMediaTimeUs to be consistent with the current buffer's start time and the
           // number of bytes submitted.
-          startMediaTimeUs += (bufferStartTime - expectedBufferStartTime);
+          long syncOffset = bufferStartTime - expectedBufferStartTime;
+          wallClockReferenceTime -= syncOffset;
+          startMediaTimeUs += syncOffset;
           startMediaTimeState = START_IN_SYNC;
           result |= RESULT_POSITION_DISCONTINUITY;
         }
@@ -1007,4 +1015,11 @@ public final class AudioTrack {
 
   }
 
+  public long wallClockReferenceTimeMs() {
+    if (startMediaTimeState == START_NOT_SET) {
+      return C.UNKNOWN_TIME_US;
+    } else {
+      return wallClockReferenceTime;
+    }
+  }
 }

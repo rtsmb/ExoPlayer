@@ -56,8 +56,6 @@ import java.util.Locale;
  */
 public class HlsChunkSource {
 
-  private long liveWindowStartTimeMs = C.UNKNOWN_TIME_US;
-
   /**
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
    */
@@ -278,12 +276,15 @@ public class HlsChunkSource {
     boolean liveDiscontinuity = false;
 
     if (previousTsChunk == null) {
-      liveWindowStartTimeMs = System.currentTimeMillis() - durationUs / 1000;
-      if (!live || seekPositionUs != 0) {
+      if (live && seekPositionUs == 0) {
+        chunkMediaSequence = Integer.MAX_VALUE;
+      } else {
         chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
                 true) + mediaPlaylist.mediaSequence;
-      } else {
-        chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+      }
+      if (live) {
+        // Do not go beyond "live position" to have more buffer time in degraded network conditions
+        chunkMediaSequence = Math.min(chunkMediaSequence, getLivePositionChunkMediaSequence(nextVariantIndex));
       }
     } else {
       chunkMediaSequence = switchingVariantSpliced
@@ -292,7 +293,7 @@ public class HlsChunkSource {
         // TODO: Decide what we want to do with: https://github.com/google/ExoPlayer/issues/765
         // if (allowSkipAhead) {
         // If the chunk is no longer in the playlist. Skip ahead and start again.
-        chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+        chunkMediaSequence = getLivePositionChunkMediaSequence(nextVariantIndex);
         liveDiscontinuity = true;
         // } else {
         //   fatalError = new BehindLiveWindowException();
@@ -510,7 +511,7 @@ public class HlsChunkSource {
     return timeSinceLastMediaPlaylistLoadMs >= (mediaPlaylist.targetDurationSecs * 1000) / 2;
   }
 
-  private int getLiveStartChunkMediaSequence(int variantIndex) {
+  private int getLivePositionChunkMediaSequence(int variantIndex) {
     // For live start playback from the third chunk from the end.
     HlsMediaPlaylist mediaPlaylist = variantPlaylists[variantIndex];
     int chunkIndex = mediaPlaylist.segments.size() > 3 ? mediaPlaylist.segments.size() - 3 : 0;
@@ -718,19 +719,6 @@ public class HlsChunkSource {
 
     public byte[] getResult() {
       return result;
-    }
-  }
-
-  public long[] getLiveRangeMs() {
-    long now = System.currentTimeMillis();
-    return new long[] { now - durationUs / 1000, now};
-  }
-
-  public long convertLiveTrackPositionMs(long positionUs) {
-    if (liveWindowStartTimeMs == C.UNKNOWN_TIME_US) {
-      return C.UNKNOWN_TIME_US;
-    } else {
-      return liveWindowStartTimeMs + positionUs / 1000;
     }
   }
 }

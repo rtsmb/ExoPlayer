@@ -18,18 +18,6 @@ package com.google.android.exoplayer;
 /**
  * Tracks the progression of media time.
  */
-public interface MediaClock {
+public interface WallClockTimeProvider {
 
-  /**
-   * @return The current media position in microseconds.
-   */
-  long getPositionUs();
-
-  /**
-   * This method can be used to convert position to a wall clock time in the case of a Live
-   * DVR stream.
-   *
-   * @return wall clock time for the beginning of the stream window in milliseconds
-   */
-  long wallClockReferenceTimeMs();
 }

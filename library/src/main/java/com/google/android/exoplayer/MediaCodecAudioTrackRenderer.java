@@ -15,17 +15,17 @@
  */
 package com.google.android.exoplayer;
 
-import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
-import com.google.android.exoplayer.audio.AudioCapabilities;
-import com.google.android.exoplayer.audio.AudioTrack;
-import com.google.android.exoplayer.drm.DrmSessionManager;
-import com.google.android.exoplayer.util.MimeTypes;
-
 import android.annotation.TargetApi;
 import android.media.AudioManager;
 import android.media.MediaCodec;
 import android.media.audiofx.Virtualizer;
 import android.os.Handler;
+
+import com.google.android.exoplayer.MediaCodecUtil.DecoderQueryException;
+import com.google.android.exoplayer.audio.AudioCapabilities;
+import com.google.android.exoplayer.audio.AudioTrack;
+import com.google.android.exoplayer.drm.DrmSessionManager;
+import com.google.android.exoplayer.util.MimeTypes;
 
 import java.nio.ByteBuffer;
 
@@ -33,7 +33,7 @@ import java.nio.ByteBuffer;
  * Decodes and renders audio using {@link MediaCodec} and {@link android.media.AudioTrack}.
  */
 @TargetApi(16)
-public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implements MediaClock {
+public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implements MediaClock, WallClockTimeProvider {
 
   /**
    * Interface definition for a callback to be notified of {@link MediaCodecAudioTrackRenderer}
@@ -409,4 +409,7 @@ public class MediaCodecAudioTrackRenderer extends MediaCodecTrackRenderer implem
     }
   }
 
+  public long wallClockReferenceTimeMs() {
+    return audioTrack.wallClockReferenceTimeMs();
+  }
 }

@@ -15,6 +15,9 @@
  */
 package com.google.android.exoplayer.ext.opus;
 
+import android.os.Handler;
+
+import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.ExoPlayer;
 import com.google.android.exoplayer.MediaClock;
@@ -27,8 +30,6 @@ import com.google.android.exoplayer.audio.AudioTrack;
 import com.google.android.exoplayer.ext.opus.OpusDecoderWrapper.InputBuffer;
 import com.google.android.exoplayer.ext.opus.OpusDecoderWrapper.OutputBuffer;
 import com.google.android.exoplayer.util.MimeTypes;
-
-import android.os.Handler;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -418,4 +419,8 @@ public final class LibopusAudioTrackRenderer extends SampleSourceTrackRenderer
     }
   }
 
+  @Override
+  public long wallClockReferenceTimeMs() {
+    return C.UNKNOWN_TIME_US;
+  }
 }

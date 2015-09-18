@@ -73,4 +73,8 @@ import android.os.SystemClock;
     return SystemClock.elapsedRealtime() * 1000 - toSubtractUs;
   }
 
+  @Override
+  public long wallClockReferenceTimeMs() {
+    return 0;
+  }
 }

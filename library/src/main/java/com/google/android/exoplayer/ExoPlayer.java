@@ -448,4 +448,7 @@ public interface ExoPlayer {
    */
   public int getBufferedPercentage();
 
+  public long[] getLiveRangeMs();
+
+  public long getWallClockPosition();
 }

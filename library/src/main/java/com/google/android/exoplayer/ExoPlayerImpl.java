@@ -200,6 +200,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
     return internalPlayer.getBufferedPosition();
   }
 
+
+  public long[] getLiveRangeMs() {
+    return internalPlayer.getLiveRange();
+  }
+
+  public long getWallClockPosition() {
+    return internalPlayer.getWallClockPosition();
+  }
+
   @Override
   public int getBufferedPercentage() {
     long bufferedPosition = getBufferedPosition();

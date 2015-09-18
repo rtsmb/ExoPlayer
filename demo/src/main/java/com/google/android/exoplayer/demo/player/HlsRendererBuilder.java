@@ -156,14 +156,12 @@ public class HlsRendererBuilder implements RendererBuilder {
           sampleSource, new Id3Parser(), player, mainHandler.getLooper());
       Eia608TrackRenderer closedCaptionRenderer = new Eia608TrackRenderer(sampleSource, player,
           mainHandler.getLooper());
-      HlsLiveTimeRenderer liveTimeRenderer = new HlsLiveTimeRenderer(chunkSource, audioRenderer, player, mainHandler.getLooper());
 
       TrackRenderer[] renderers = new TrackRenderer[DemoPlayer.RENDERER_COUNT];
       renderers[DemoPlayer.TYPE_VIDEO] = videoRenderer;
       renderers[DemoPlayer.TYPE_AUDIO] = audioRenderer;
       renderers[DemoPlayer.TYPE_METADATA] = id3Renderer;
       renderers[DemoPlayer.TYPE_TEXT] = closedCaptionRenderer;
-      renderers[DemoPlayer.TYPE_LIVE_TIME_RENDERER] = liveTimeRenderer;
       player.onRenderers(renderers, bandwidthMeter);
     }
 
