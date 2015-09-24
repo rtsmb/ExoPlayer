@@ -133,14 +133,14 @@ import java.util.List;
     return new long[] { now - durationUs / 1000, now};
   }
 
-  public long getWallClockPosition() {
+  public long getWallClockOffset() {
     if (rendererMediaClock != null && enabledRenderers.contains(rendererMediaClockSource)
             && !rendererMediaClockSource.isEnded()) {
-      long wallClockTimeForDvrWindowStartMs = rendererMediaClock.wallClockReferenceTimeMs();
-      if (wallClockTimeForDvrWindowStartMs == C.UNKNOWN_TIME_US) {
+      long wallClockTimeForDvrWindowEndMs = rendererMediaClock.wallClockReferenceTimeMs();
+      if (wallClockTimeForDvrWindowEndMs == C.UNKNOWN_TIME_US) {
         return ExoPlayer.UNKNOWN_TIME;
       } else {
-        return wallClockTimeForDvrWindowStartMs + (positionUs -  durationUs)/1000;
+        return wallClockTimeForDvrWindowEndMs -  durationUs / 1000;
       }
     } else {
       return ExoPlayer.UNKNOWN_TIME;

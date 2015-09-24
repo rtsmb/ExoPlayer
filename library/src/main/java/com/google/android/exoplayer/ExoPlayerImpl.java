@@ -205,8 +205,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
     return internalPlayer.getLiveRange();
   }
 
-  public long getWallClockPosition() {
-    return internalPlayer.getWallClockPosition();
+  public long getWallClockOffset() {
+    return internalPlayer.getWallClockOffset();
   }
 
   @Override

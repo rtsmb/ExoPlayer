@@ -592,7 +592,7 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   }
 
   public long getLiveTimeMs() {
-    return player.getWallClockPosition();
+    return player.getWallClockOffset();
   }
 
   public long[] getLiveTimeRange() {

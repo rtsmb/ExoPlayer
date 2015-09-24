@@ -522,7 +522,7 @@ public final class AudioTrack {
           // Adjust startMediaTimeUs to be consistent with the current buffer's start time and the
           // number of bytes submitted.
           long syncOffset = bufferStartTime - expectedBufferStartTime;
-          wallClockReferenceTime -= syncOffset;
+          wallClockReferenceTime += syncOffset;
           startMediaTimeUs += syncOffset;
           startMediaTimeState = START_IN_SYNC;
           result |= RESULT_POSITION_DISCONTINUITY;

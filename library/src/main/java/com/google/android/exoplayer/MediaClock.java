@@ -29,7 +29,7 @@ public interface MediaClock {
    * This method can be used to convert position to a wall clock time in the case of a Live
    * DVR stream.
    *
-   * @return wall clock time for the beginning of the stream window in milliseconds
+   * @return wall clock time for the end of the stream window in milliseconds
    */
   long wallClockReferenceTimeMs();
 }
