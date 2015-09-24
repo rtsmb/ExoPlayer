@@ -85,6 +85,11 @@ public final class LogcatLogger implements ExoPlayer.Listener,
   }
 
   @Override
+  public void onDecoderError(IllegalStateException e) {
+    Log.e(tag, "Decoder error", e);
+  }
+
+  @Override
   public void onCryptoError(CryptoException e) {
     Log.e(tag, "Crypto error", e);
   }
