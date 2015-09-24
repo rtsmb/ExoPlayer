@@ -51,6 +51,10 @@ public final class DebugTextViewHelper implements Runnable {
      */
     CodecCounters getCodecCounters();
 
+    /**
+     * True if we expect playlist to be updated dynamically and new media segments to be added live.
+     */
+    boolean isLive();
   }
 
   private static final int REFRESH_INTERVAL_MS = 1000;
@@ -104,7 +108,8 @@ public final class DebugTextViewHelper implements Runnable {
   private String getQualityString() {
     Format format = debuggable.getFormat();
     return format == null ? "id:? br:? h:?"
-        : "id:" + format.id + " br:" + format.bitrate + " h:" + format.height;
+        : "id:" + format.id + " br:" + format.bitrate + " h:" + format.height
+            + " live:" + debuggable.isLive();
   }
 
   private String getBandwidthString() {

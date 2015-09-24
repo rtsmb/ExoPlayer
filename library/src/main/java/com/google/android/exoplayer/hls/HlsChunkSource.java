@@ -57,10 +57,16 @@ import java.util.Locale;
  */
 public class HlsChunkSource {
 
+  private long mediaPlaylistStartTimeUs;
+
   /**
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
    */
-  public interface EventListener extends BaseChunkSampleSourceEventListener {}
+  public interface EventListener extends BaseChunkSampleSourceEventListener {
+    void onPlaylistInformation(boolean live, long playlistStartTimeUs);
+  }
+
+  private final EventListener eventListener;
 
   /**
    * Adaptive switching is disabled.
@@ -151,9 +157,9 @@ public class HlsChunkSource {
   private byte[] encryptionIv;
 
   public HlsChunkSource(DataSource dataSource, String playlistUrl, HlsPlaylist playlist,
-      BandwidthMeter bandwidthMeter, int[] variantIndices, int adaptiveMode) {
+      BandwidthMeter bandwidthMeter, int[] variantIndices, int adaptiveMode, EventListener eventListener) {
     this(dataSource, playlistUrl, playlist, bandwidthMeter, variantIndices, adaptiveMode,
-        DEFAULT_MIN_BUFFER_TO_SWITCH_UP_MS, DEFAULT_MAX_BUFFER_TO_SWITCH_DOWN_MS);
+        DEFAULT_MIN_BUFFER_TO_SWITCH_UP_MS, DEFAULT_MAX_BUFFER_TO_SWITCH_DOWN_MS, eventListener);
   }
 
   /**
@@ -162,19 +168,19 @@ public class HlsChunkSource {
    * @param playlist The hls playlist.
    * @param bandwidthMeter provides an estimate of the currently available bandwidth.
    * @param variantIndices If {@code playlist} is a {@link HlsMasterPlaylist}, the subset of variant
-   *     indices to consider, or null to consider all of the variants. For other playlist types
-   *     this parameter is ignored.
+*     indices to consider, or null to consider all of the variants. For other playlist types
+*     this parameter is ignored.
    * @param adaptiveMode The mode for switching from one variant to another. One of
-   *     {@link #ADAPTIVE_MODE_NONE}, {@link #ADAPTIVE_MODE_ABRUPT} and
-   *     {@link #ADAPTIVE_MODE_SPLICE}.
+*     {@link #ADAPTIVE_MODE_NONE}, {@link #ADAPTIVE_MODE_ABRUPT} and
+*     {@link #ADAPTIVE_MODE_SPLICE}.
    * @param minBufferDurationToSwitchUpMs The minimum duration of media that needs to be buffered
-   *     for a switch to a higher quality variant to be considered.
+*     for a switch to a higher quality variant to be considered.
    * @param maxBufferDurationToSwitchDownMs The maximum duration of media that needs to be buffered
-   *     for a switch to a lower quality variant to be considered.
+   * @param eventListener
    */
   public HlsChunkSource(DataSource dataSource, String playlistUrl, HlsPlaylist playlist,
-      BandwidthMeter bandwidthMeter, int[] variantIndices, int adaptiveMode,
-      long minBufferDurationToSwitchUpMs, long maxBufferDurationToSwitchDownMs) {
+                        BandwidthMeter bandwidthMeter, int[] variantIndices, int adaptiveMode,
+                        long minBufferDurationToSwitchUpMs, long maxBufferDurationToSwitchDownMs, EventListener eventListener) {
     this.dataSource = dataSource;
     this.bandwidthMeter = bandwidthMeter;
     this.adaptiveMode = adaptiveMode;
@@ -223,6 +229,7 @@ public class HlsChunkSource {
         this.adaptiveMaxHeight = maxHeight > 0 ? maxHeight : 1080;
       }
     }
+    this.eventListener = eventListener;
   }
 
   public long getDurationUs() {
@@ -277,6 +284,7 @@ public class HlsChunkSource {
     int chunkMediaSequence;
     boolean liveDiscontinuity = false;
     if (previousTsChunk == null) {
+      mediaPlaylistStartTimeUs = 0;
       if (!live || seekPositionUs != 0) {
         chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
                 true) + mediaPlaylist.mediaSequence;
@@ -384,7 +392,22 @@ public class HlsChunkSource {
     if (chunk instanceof MediaPlaylistChunk) {
       MediaPlaylistChunk mediaPlaylistChunk = (MediaPlaylistChunk) chunk;
       scratchSpace = mediaPlaylistChunk.getDataHolder();
-      setMediaPlaylist(mediaPlaylistChunk.variantIndex, mediaPlaylistChunk.getResult());
+      HlsMediaPlaylist newMediaPlaylist = mediaPlaylistChunk.getResult();
+
+      HlsMediaPlaylist oldMediaPlaylist = variantPlaylists[selectedVariantIndex];
+      if (oldMediaPlaylist != null) {
+        for (int sequenceIndex = oldMediaPlaylist.mediaSequence, i = 0;
+             sequenceIndex < newMediaPlaylist.mediaSequence && i < oldMediaPlaylist.segments.size();
+             sequenceIndex++, i++) {
+          mediaPlaylistStartTimeUs += oldMediaPlaylist.segments.get(i).durationSecs * C.MICROS_PER_SECOND;
+
+        }
+        if (eventListener != null) {
+          eventListener.onPlaylistInformation(live, mediaPlaylistStartTimeUs);
+        }
+      }
+
+      setMediaPlaylist(mediaPlaylistChunk.variantIndex, newMediaPlaylist);
     } else if (chunk instanceof EncryptionKeyChunk) {
       EncryptionKeyChunk encryptionKeyChunk = (EncryptionKeyChunk) chunk;
       scratchSpace = encryptionKeyChunk.getDataHolder();

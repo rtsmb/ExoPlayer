@@ -31,6 +31,7 @@ import com.google.android.exoplayer.chunk.ChunkSampleSource;
 import com.google.android.exoplayer.chunk.Format;
 import com.google.android.exoplayer.dash.DashChunkSource;
 import com.google.android.exoplayer.drm.StreamingDrmSessionManager;
+import com.google.android.exoplayer.hls.HlsChunkSource;
 import com.google.android.exoplayer.hls.HlsSampleSource;
 import com.google.android.exoplayer.metadata.MetadataTrackRenderer.MetadataRenderer;
 import com.google.android.exoplayer.text.Cue;
@@ -59,7 +60,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventListener,
     HlsSampleSource.EventListener, DefaultBandwidthMeter.EventListener,
     MediaCodecVideoTrackRenderer.EventListener, MediaCodecAudioTrackRenderer.EventListener,
-    StreamingDrmSessionManager.EventListener, DashChunkSource.EventListener, TextRenderer,
+    StreamingDrmSessionManager.EventListener, DashChunkSource.EventListener,
+        HlsChunkSource.EventListener, TextRenderer,
     MetadataRenderer<Map<String, Object>>, DebugTextViewHelper.Provider {
 
   /**
@@ -186,6 +188,9 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   private Id3MetadataListener id3MetadataListener;
   private InternalErrorListener internalErrorListener;
   private InfoListener infoListener;
+
+  private long playlistStartTimeUs;
+  private boolean live;
 
   public DemoPlayer(RendererBuilder rendererBuilder) {
     this.rendererBuilder = rendererBuilder;
@@ -317,6 +322,13 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     rendererBuildingState = RENDERER_BUILDING_STATE_BUILT;
   }
 
+  @Override
+  public void onPlaylistInformation(boolean live, long playlistStartTimeUs) {
+    this.live = live;
+    this.playlistStartTimeUs = playlistStartTimeUs;
+  }
+
+
   /**
    * Invoked if a {@link RendererBuilder} encounters an error.
    *
@@ -378,7 +390,12 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
 
   @Override
   public long getCurrentPosition() {
-    return player.getCurrentPosition();
+    return player.getCurrentPosition() - playlistStartTimeUs / 1000;
+  }
+
+  @Override
+  public boolean isLive() {
+    return live;
   }
 
   public long getDuration() {
