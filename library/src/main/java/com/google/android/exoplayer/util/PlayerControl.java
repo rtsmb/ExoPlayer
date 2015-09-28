@@ -15,9 +15,9 @@
  */
 package com.google.android.exoplayer.util;
 
-import com.google.android.exoplayer.ExoPlayer;
-
 import android.widget.MediaController.MediaPlayerControl;
+
+import com.google.android.exoplayer.ExoPlayer;
 
 /**
  * An implementation of {@link MediaPlayerControl} for controlling an {@link ExoPlayer} instance.
@@ -28,6 +28,7 @@ import android.widget.MediaController.MediaPlayerControl;
 public class PlayerControl implements MediaPlayerControl {
 
   private final ExoPlayer exoPlayer;
+  private int playlistOffsetMs;
 
   public PlayerControl(ExoPlayer exoPlayer) {
     this.exoPlayer = exoPlayer;
@@ -71,7 +72,7 @@ public class PlayerControl implements MediaPlayerControl {
   @Override
   public int getCurrentPosition() {
     return exoPlayer.getDuration() == ExoPlayer.UNKNOWN_TIME ? 0
-        : (int) exoPlayer.getCurrentPosition();
+        : (int) exoPlayer.getCurrentPosition() - playlistOffsetMs;
   }
 
   @Override
@@ -102,4 +103,7 @@ public class PlayerControl implements MediaPlayerControl {
     exoPlayer.seekTo(seekPosition);
   }
 
+  public void setPlaylistOffsetMs(long playlistOffsetMs) {
+    this.playlistOffsetMs = (int) playlistOffsetMs;
+  }
 }
