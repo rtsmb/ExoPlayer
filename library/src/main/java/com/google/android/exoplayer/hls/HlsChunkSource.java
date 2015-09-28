@@ -58,6 +58,7 @@ import java.util.Locale;
 public class HlsChunkSource {
 
   private long mediaPlaylistStartTimeUs;
+  private int mediaPlaylistSequenceStart;
 
   /**
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
@@ -285,9 +286,13 @@ public class HlsChunkSource {
     boolean liveDiscontinuity = false;
     if (previousTsChunk == null) {
       mediaPlaylistStartTimeUs = 0;
+      mediaPlaylistSequenceStart = mediaPlaylist.mediaSequence;
       if (!live || seekPositionUs != 0) {
         chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, seekPositionUs, true,
                 true) + mediaPlaylist.mediaSequence;
+        if (live) {
+          chunkMediaSequence = Math.min(getLiveStartChunkMediaSequence(nextVariantIndex), chunkMediaSequence);
+        }
       } else {
         chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
       }
@@ -299,6 +304,8 @@ public class HlsChunkSource {
         // if (allowSkipAhead) {
         // If the chunk is no longer in the playlist. Skip ahead and start again.
         chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+        mediaPlaylistStartTimeUs = 0;
+        mediaPlaylistSequenceStart = mediaPlaylist.mediaSequence;
         liveDiscontinuity = true;
         // } else {
         //   fatalError = new BehindLiveWindowException();
@@ -396,12 +403,12 @@ public class HlsChunkSource {
 
       HlsMediaPlaylist oldMediaPlaylist = variantPlaylists[selectedVariantIndex];
       if (oldMediaPlaylist != null) {
-        for (int sequenceIndex = oldMediaPlaylist.mediaSequence, i = 0;
+        for (int sequenceIndex = Math.max(mediaPlaylistSequenceStart, oldMediaPlaylist.mediaSequence), i = 0;
              sequenceIndex < newMediaPlaylist.mediaSequence && i < oldMediaPlaylist.segments.size();
              sequenceIndex++, i++) {
           mediaPlaylistStartTimeUs += oldMediaPlaylist.segments.get(i).durationSecs * C.MICROS_PER_SECOND;
-
         }
+        mediaPlaylistSequenceStart = newMediaPlaylist.mediaSequence;
         if (eventListener != null) {
           eventListener.onPlaylistInformation(live, mediaPlaylistStartTimeUs);
         }
