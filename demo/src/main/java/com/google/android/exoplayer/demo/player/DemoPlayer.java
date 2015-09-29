@@ -326,6 +326,7 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
   public void onPlaylistInformation(boolean live, long playlistStartTimeUs) {
     this.live = live;
     this.playlistStartTimeUs = playlistStartTimeUs;
+    playerControl.setLive(live);
     playerControl.setPlaylistOffsetMs(playlistStartTimeUs / 1000);
   }
 

@@ -29,6 +29,7 @@ public class PlayerControl implements MediaPlayerControl {
 
   private final ExoPlayer exoPlayer;
   private int playlistOffsetMs;
+  private boolean live;
 
   public PlayerControl(ExoPlayer exoPlayer) {
     this.exoPlayer = exoPlayer;
@@ -99,11 +100,15 @@ public class PlayerControl implements MediaPlayerControl {
   @Override
   public void seekTo(int timeMillis) {
     long seekPosition = exoPlayer.getDuration() == ExoPlayer.UNKNOWN_TIME ? 0
-        : Math.min(Math.max(0, timeMillis), getDuration());
+        : Math.min(Math.max(live ? 1 : 0, timeMillis), getDuration());
     exoPlayer.seekTo(seekPosition);
   }
 
   public void setPlaylistOffsetMs(long playlistOffsetMs) {
     this.playlistOffsetMs = (int) playlistOffsetMs;
+  }
+
+  public void setLive(boolean live) {
+    this.live = live;
   }
 }
