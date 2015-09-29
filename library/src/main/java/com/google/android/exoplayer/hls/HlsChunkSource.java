@@ -237,6 +237,10 @@ public class HlsChunkSource {
     return durationUs;
   }
 
+  public boolean isLive() {
+    return live;
+  }
+
   /**
    * If the source is currently having difficulty providing chunks, then this method throws the
    * underlying error. Otherwise does nothing.

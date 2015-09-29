@@ -523,6 +523,7 @@ public final class HlsSampleSource implements SampleSource, SampleSourceReader, 
 
     // Update the control with our current state, and determine whether we're the next loader.
     boolean nextLoader = loadControl.update(this, downstreamPositionUs, nextLoadPositionUs,
+    boolean nextLoader = chunkSource.isLive() || loadControl.update(this, downstreamPositionUs, nextLoadPositionUs,
         loadingOrBackedOff);
 
     if (isBackedOff) {
