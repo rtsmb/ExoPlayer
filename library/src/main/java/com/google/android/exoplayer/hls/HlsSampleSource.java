@@ -15,6 +15,9 @@
  */
 package com.google.android.exoplayer.hls;
 
+import android.os.Handler;
+import android.os.SystemClock;
+
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.LoadControl;
 import com.google.android.exoplayer.MediaFormat;
@@ -31,9 +34,6 @@ import com.google.android.exoplayer.upstream.Loader;
 import com.google.android.exoplayer.upstream.Loader.Loadable;
 import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.MimeTypes;
-
-import android.os.Handler;
-import android.os.SystemClock;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -522,7 +522,7 @@ public final class HlsSampleSource implements SampleSource, SampleSourceReader, 
     boolean loadingOrBackedOff = loader.isLoading() || isBackedOff;
 
     // Update the control with our current state, and determine whether we're the next loader.
-    boolean nextLoader = chunkSource.isLive() || loadControl.update(this, downstreamPositionUs, nextLoadPositionUs,
+    boolean nextLoader = loadControl.update(this, downstreamPositionUs, nextLoadPositionUs,
         loadingOrBackedOff);
 
     if (isBackedOff) {
@@ -534,12 +534,12 @@ public final class HlsSampleSource implements SampleSource, SampleSourceReader, 
       return;
     }
 
-    if (loader.isLoading() || !nextLoader) {
+    if (loader.isLoading() || (!chunkSource.isLive() && !nextLoader)) {
       return;
     }
 
     chunkSource.getChunkOperation(previousTsLoadable, pendingResetPositionUs,
-        downstreamPositionUs, chunkOperationHolder);
+        downstreamPositionUs, chunkOperationHolder, nextLoader);
     boolean endOfStream = chunkOperationHolder.endOfStream;
     Chunk nextLoadable = chunkOperationHolder.chunk;
     chunkOperationHolder.clear();

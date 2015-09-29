@@ -15,6 +15,11 @@
  */
 package com.google.android.exoplayer.hls;
 
+import android.net.Uri;
+import android.os.SystemClock;
+import android.text.TextUtils;
+import android.util.Log;
+
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.chunk.BaseChunkSampleSourceEventListener;
@@ -34,11 +39,6 @@ import com.google.android.exoplayer.upstream.HttpDataSource.InvalidResponseCodeE
 import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.UriUtil;
 import com.google.android.exoplayer.util.Util;
-
-import android.net.Uri;
-import android.os.SystemClock;
-import android.text.TextUtils;
-import android.util.Log;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -256,16 +256,16 @@ public class HlsChunkSource {
   /**
    * Updates the provided {@link ChunkOperationHolder} to contain the next operation that should
    * be performed by the calling {@link HlsSampleSource}.
-   *
-   * @param previousTsChunk The previously loaded chunk that the next chunk should follow.
+   *  @param previousTsChunk The previously loaded chunk that the next chunk should follow.
    * @param seekPositionUs If there is no previous chunk, this parameter must specify the seek
    *     position. If there is a previous chunk then this parameter is ignored.
    * @param playbackPositionUs The current playback position.
    * @param out The holder to populate with the result. {@link ChunkOperationHolder#queueSize} is
-   *     unused.
+   * @param nextLoader
    */
   public void getChunkOperation(TsChunk previousTsChunk, long seekPositionUs,
-      long playbackPositionUs, ChunkOperationHolder out) {
+                                long playbackPositionUs, ChunkOperationHolder out,
+                                boolean nextLoader) {
     int nextVariantIndex;
     boolean switchingVariantSpliced;
     if (adaptiveMode == ADAPTIVE_MODE_NONE) {
@@ -389,8 +389,10 @@ public class HlsChunkSource {
       }
     }
 
-    out.chunk = new TsChunk(dataSource, dataSpec, trigger, format, startTimeUs, endTimeUs,
-        chunkMediaSequence, extractorWrapper, encryptionKey, encryptionIv);
+    if (nextLoader) {
+      out.chunk = new TsChunk(dataSource, dataSpec, trigger, format, startTimeUs, endTimeUs,
+              chunkMediaSequence, extractorWrapper, encryptionKey, encryptionIv);
+    }
   }
 
   /**
