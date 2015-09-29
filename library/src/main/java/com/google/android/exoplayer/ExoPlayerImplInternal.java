@@ -292,9 +292,48 @@ import java.util.concurrent.atomic.AtomicInteger;
       return;
     }
 
-    long durationUs = 0;
     boolean allRenderersEnded = true;
     boolean allRenderersReadyOrEnded = true;
+    for (int rendererIndex = 0; rendererIndex < renderers.length; rendererIndex++) {
+      TrackRenderer renderer = renderers[rendererIndex];
+      int rendererTrackCount = renderer.getTrackCount();
+      if (rendererTrackCount > 0) {
+        MediaFormat[] rendererTrackFormats = new MediaFormat[rendererTrackCount];
+        for (int trackIndex = 0; trackIndex < rendererTrackCount; trackIndex++) {
+          rendererTrackFormats[trackIndex] = renderer.getFormat(trackIndex);
+        }
+        int trackIndex = selectedTrackIndices[rendererIndex];
+        if (0 <= trackIndex && trackIndex < rendererTrackFormats.length) {
+          renderer.enable(trackIndex, positionUs, false);
+          enabledRenderers.add(renderer);
+          allRenderersEnded = allRenderersEnded && renderer.isEnded();
+          allRenderersReadyOrEnded = allRenderersReadyOrEnded && rendererReadyOrEnded(renderer);
+        }
+      }
+    }
+    this.durationUs = measureMaximumTrackDuration();
+
+    if (allRenderersEnded
+        && (durationUs == TrackRenderer.UNKNOWN_TIME_US || durationUs <= positionUs)) {
+      // We don't expect this case, but handle it anyway.
+      state = ExoPlayer.STATE_ENDED;
+    } else {
+      state = allRenderersReadyOrEnded ? ExoPlayer.STATE_READY : ExoPlayer.STATE_BUFFERING;
+    }
+
+    // Fire an event indicating that the player has been prepared, passing the initial state and
+    // renderer track information.
+    eventHandler.obtainMessage(MSG_PREPARED, state, 0, trackFormats).sendToTarget();
+
+    // Start the renderers if required, and schedule the first piece of work.
+    if (playWhenReady && state == ExoPlayer.STATE_READY) {
+      startRenderers();
+    }
+    handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+  }
+
+  private long measureMaximumTrackDuration() {
+    long durationUs = 0;
     for (int rendererIndex = 0; rendererIndex < renderers.length; rendererIndex++) {
       TrackRenderer renderer = renderers[rendererIndex];
       int rendererTrackCount = renderer.getTrackCount();
@@ -317,34 +356,9 @@ import java.util.concurrent.atomic.AtomicInteger;
             durationUs = Math.max(durationUs, trackDurationUs);
           }
         }
-        int trackIndex = selectedTrackIndices[rendererIndex];
-        if (0 <= trackIndex && trackIndex < rendererTrackFormats.length) {
-          renderer.enable(trackIndex, positionUs, false);
-          enabledRenderers.add(renderer);
-          allRenderersEnded = allRenderersEnded && renderer.isEnded();
-          allRenderersReadyOrEnded = allRenderersReadyOrEnded && rendererReadyOrEnded(renderer);
-        }
       }
     }
-    this.durationUs = durationUs;
-
-    if (allRenderersEnded
-        && (durationUs == TrackRenderer.UNKNOWN_TIME_US || durationUs <= positionUs)) {
-      // We don't expect this case, but handle it anyway.
-      state = ExoPlayer.STATE_ENDED;
-    } else {
-      state = allRenderersReadyOrEnded ? ExoPlayer.STATE_READY : ExoPlayer.STATE_BUFFERING;
-    }
-
-    // Fire an event indicating that the player has been prepared, passing the initial state and
-    // renderer track information.
-    eventHandler.obtainMessage(MSG_PREPARED, state, 0, trackFormats).sendToTarget();
-
-    // Start the renderers if required, and schedule the first piece of work.
-    if (playWhenReady && state == ExoPlayer.STATE_READY) {
-      startRenderers();
-    }
-    handler.sendEmptyMessage(MSG_DO_SOME_WORK);
+    return durationUs;
   }
 
   private boolean rendererReadyOrEnded(TrackRenderer renderer) {
@@ -412,6 +426,8 @@ import java.util.concurrent.atomic.AtomicInteger;
     } else {
       positionUs = standaloneMediaClock.getPositionUs();
     }
+    // TODO We need to optimize that and do this only on a duration change notification
+    durationUs = measureMaximumTrackDuration();
     elapsedRealtimeUs = SystemClock.elapsedRealtime() * 1000;
   }
 
