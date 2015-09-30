@@ -197,6 +197,7 @@ public interface SampleSource {
      */
     public void release();
 
+    public long getDurationUs();
   }
 
 }

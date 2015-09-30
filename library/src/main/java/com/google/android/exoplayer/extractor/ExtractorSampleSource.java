@@ -479,6 +479,11 @@ public final class ExtractorSampleSource implements SampleSource, SampleSourceRe
   }
 
   @Override
+  public long getDurationUs() {
+    return C.UNKNOWN_TIME_US;
+  }
+
+  @Override
   public void release() {
     Assertions.checkState(remainingReleaseCount > 0);
     if (--remainingReleaseCount == 0 && loader != null) {

@@ -309,6 +309,11 @@ public class ChunkSampleSource implements SampleSource, SampleSourceReader, Load
   }
 
   @Override
+  public long getDurationUs() {
+    return C.UNKNOWN_TIME_US;
+  }
+
+  @Override
   public void release() {
     Assertions.checkState(state != STATE_ENABLED);
     if (loader != null) {

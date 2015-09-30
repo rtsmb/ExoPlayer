@@ -158,6 +158,11 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   }
 
   @Override
+  public long getDurationUs() {
+    return C.UNKNOWN_TIME_US;
+  }
+
+  @Override
   public void disable(int track) {
     state = STATE_END_OF_STREAM;
   }

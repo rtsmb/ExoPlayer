@@ -132,7 +132,16 @@ public abstract class SampleSourceTrackRenderer extends TrackRenderer {
 
   @Override
   protected long getDurationUs() {
-    return durationUs;
+    if (enabledSource == null) {
+      return durationUs;
+    } else {
+      long sourceDuration = enabledSource.getDurationUs();
+      if (sourceDuration == C.UNKNOWN_TIME_US) {
+        return durationUs;
+      } else {
+        return sourceDuration;
+      }
+    }
   }
 
   @Override

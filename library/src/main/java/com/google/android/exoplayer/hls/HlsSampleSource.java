@@ -383,6 +383,11 @@ public final class HlsSampleSource implements SampleSource, SampleSourceReader, 
   }
 
   @Override
+  public long getDurationUs() {
+    return chunkSource.getDurationUs();
+  }
+
+  @Override
   public void release() {
     Assertions.checkState(remainingReleaseCount > 0);
     if (--remainingReleaseCount == 0 && loader != null) {
