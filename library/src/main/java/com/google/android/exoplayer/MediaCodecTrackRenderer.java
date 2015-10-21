@@ -809,7 +809,7 @@ public abstract class MediaCodecTrackRenderer extends SampleSourceTrackRenderer 
       } catch (IllegalStateException e) {
         // An illegal state is thrown after a playing exception has occurred. Root cause cannot be
         // known (except if we were to use setCallbacks / onError, but only for API >= 21)
-        notifyDecoderError(null);
+//        notifyDecoderError(null);
         releaseCodec();
         return false;
       }
