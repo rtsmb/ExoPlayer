@@ -1,8 +1,55 @@
 # Release notes #
 
-### Current dev branch (from r1.5.0) ###
+### r1.5.6 ###
 
+* MP3: Fix mono streams playing at 2x speed on some MediaTek based devices (#801).
+* MP3: Fix playback of some streams when stream length is unknown.
+* ID3: Support multiple frames of the same type in a single tag.
+* EIA608: Correctly handle repeated control characters, fixing an issue in which captions would
+  immediately disappear.
+* AVC3: Fix decoder failures on some MediaTek devices in the case where the first buffer fed to the
+  decoder does not start with SPS/PPS NAL units.
+* Misc bug fixes.
+
+### r1.5.5 ###
+
+* DASH: Enable MP4 embedded WebVTT playback (#1185)
+* HLS: Fix handling of extended ID3 tags in MPEG-TS (#1181)
+* MP3: Fix incorrect position calculation in VBRI header (#1197)
+* Fix issue seeking backward using SingleSampleSource (#1193)
+
+### r1.5.4 ###
+
+* HLS: Support for variant selection and WebVtt subtitles.
+* MP4: Support for embedded WebVtt.
+* Improved device compatibility.
+* Fix for resource leak (Issue #1066).
+* Misc bug fixes + minor features.
+
+### r1.5.3 ###
+
+* Support for FLV (without seeking).
+* MP4: Fix for playback of media containing basic edit lists.
+* QuickTime: Fix parsing of QuickTime style audio sample entry.
+* HLS: Add H262 support for devices that have an H262 decoder.
+* Allow AudioTrack PlaybackParams (e.g. speed/pitch) on API level 23+.
+* Correctly detect 4K displays on API level 23+.
+* Misc bug fixes.
+
+### r1.5.2 ###
+
+* MPEG-TS/HLS: Fix frame drops playing H265 video.
+* SmoothStreaming: Fix parsing of ProtectionHeader.
+
+### r1.5.1 ###
+
+* Enable smooth frame release by default.
 * Added OkHttpDataSource extension.
+* AndroidTV: Correctly detect 4K display size on Bravia devices.
+* FMP4: Handle non-sample data in mdat boxes.
+* TTML: Fix parsing of some colors on Jellybean.
+* SmoothStreaming: Ignore tfdt boxes.
+* Misc bug fixes.
 
 ### r1.5.0 ###
 

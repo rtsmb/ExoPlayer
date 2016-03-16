@@ -57,6 +57,9 @@ import java.util.List;
   private boolean foundFirstSample;
   private long totalBytesWritten;
 
+  // Per packet state that gets reset at the start of each packet.
+  private long pesTimeUs;
+
   // Per sample state that gets reset at the start of each sample.
   private boolean isKeyframe;
   private long samplePosition;
@@ -65,11 +68,11 @@ import java.util.List;
   // Scratch variables to avoid allocations.
   private final ParsableByteArray seiWrapper;
 
-  public H264Reader(TrackOutput output, SeiReader seiReader, boolean idrKeyframesOnly) {
+  public H264Reader(TrackOutput output, SeiReader seiReader, boolean allowNonIdrKeyframes) {
     super(output);
     this.seiReader = seiReader;
     prefixFlags = new boolean[3];
-    ifrParserBuffer = (idrKeyframesOnly) ? null : new IfrParserBuffer();
+    ifrParserBuffer = allowNonIdrKeyframes ? new IfrParserBuffer() : null;
     sps = new NalUnitTargetBuffer(NAL_UNIT_TYPE_SPS, 128);
     pps = new NalUnitTargetBuffer(NAL_UNIT_TYPE_PPS, 128);
     sei = new NalUnitTargetBuffer(NAL_UNIT_TYPE_SEI, 128);
@@ -78,7 +81,6 @@ import java.util.List;
 
   @Override
   public void seek() {
-    seiReader.seek();
     NalUnitUtil.clearPrefixFlags(prefixFlags);
     sps.reset();
     pps.reset();
@@ -91,7 +93,12 @@ import java.util.List;
   }
 
   @Override
-  public void consume(ParsableByteArray data, long pesTimeUs, boolean startOfPacket) {
+  public void packetStarted(long pesTimeUs, boolean dataAlignmentIndicator) {
+    this.pesTimeUs = pesTimeUs;
+  }
+
+  @Override
+  public void consume(ParsableByteArray data) {
     while (data.bytesLeft() > 0) {
       int offset = data.getPosition();
       int limit = data.limit();
@@ -102,56 +109,60 @@ import java.util.List;
       output.sampleData(data, data.bytesLeft());
 
       // Scan the appended data, processing NAL units as they are encountered
-      while (offset < limit) {
-        int nextNalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
-        if (nextNalUnitOffset < limit) {
-          // We've seen the start of a NAL unit.
+      while (true) {
+        int nalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
 
-          // This is the length to the start of the unit. It may be negative if the NAL unit
-          // actually started in previously consumed data.
-          int lengthToNalUnit = nextNalUnitOffset - offset;
-          if (lengthToNalUnit > 0) {
-            feedNalUnitTargetBuffersData(dataArray, offset, nextNalUnitOffset);
-          }
-
-          int nalUnitType = NalUnitUtil.getNalUnitType(dataArray, nextNalUnitOffset);
-          int bytesWrittenPastNalUnit = limit - nextNalUnitOffset;
-          switch (nalUnitType) {
-            case NAL_UNIT_TYPE_IDR:
-              isKeyframe = true;
-              break;
-            case NAL_UNIT_TYPE_AUD:
-              if (foundFirstSample) {
-                if (ifrParserBuffer != null && ifrParserBuffer.isCompleted()) {
-                  int sliceType = ifrParserBuffer.getSliceType();
-                  isKeyframe |= (sliceType == FRAME_TYPE_I || sliceType == FRAME_TYPE_ALL_I);
-                  ifrParserBuffer.reset();
-                }
-                if (isKeyframe && !hasOutputFormat && sps.isCompleted() && pps.isCompleted()) {
-                  parseMediaFormat(sps, pps);
-                }
-                int flags = isKeyframe ? C.SAMPLE_FLAG_SYNC : 0;
-                int size = (int) (totalBytesWritten - samplePosition) - bytesWrittenPastNalUnit;
-                output.sampleMetadata(sampleTimeUs, flags, size, bytesWrittenPastNalUnit, null);
-              }
-              foundFirstSample = true;
-              samplePosition = totalBytesWritten - bytesWrittenPastNalUnit;
-              sampleTimeUs = pesTimeUs;
-              isKeyframe = false;
-              break;
-          }
-
-          // If the length to the start of the unit is negative then we wrote too many bytes to the
-          // NAL buffers. Discard the excess bytes when notifying that the unit has ended.
-          feedNalUnitTargetEnd(pesTimeUs, lengthToNalUnit < 0 ? -lengthToNalUnit : 0);
-          // Notify the start of the next NAL unit.
-          feedNalUnitTargetBuffersStart(nalUnitType);
-          // Continue scanning the data.
-          offset = nextNalUnitOffset + 3;
-        } else {
+        if (nalUnitOffset == limit) {
+          // We've scanned to the end of the data without finding the start of another NAL unit.
           feedNalUnitTargetBuffersData(dataArray, offset, limit);
-          offset = limit;
+          return;
         }
+
+        // We've seen the start of a NAL unit of the following type.
+        int nalUnitType = NalUnitUtil.getNalUnitType(dataArray, nalUnitOffset);
+
+        // This is the number of bytes from the current offset to the start of the next NAL unit.
+        // It may be negative if the NAL unit started in the previously consumed data.
+        int lengthToNalUnit = nalUnitOffset - offset;
+        if (lengthToNalUnit > 0) {
+          feedNalUnitTargetBuffersData(dataArray, offset, nalUnitOffset);
+        }
+
+        switch (nalUnitType) {
+          case NAL_UNIT_TYPE_IDR:
+            isKeyframe = true;
+            break;
+          case NAL_UNIT_TYPE_AUD:
+            int bytesWrittenPastNalUnit = limit - nalUnitOffset;
+            if (foundFirstSample) {
+              if (ifrParserBuffer != null && ifrParserBuffer.isCompleted()) {
+                int sliceType = ifrParserBuffer.getSliceType();
+                isKeyframe |= (sliceType == FRAME_TYPE_I || sliceType == FRAME_TYPE_ALL_I);
+                ifrParserBuffer.reset();
+              }
+              if (isKeyframe && !hasOutputFormat && sps.isCompleted() && pps.isCompleted()) {
+                output.format(parseMediaFormat(sps, pps));
+                hasOutputFormat = true;
+              }
+              int flags = isKeyframe ? C.SAMPLE_FLAG_SYNC : 0;
+              int size = (int) (totalBytesWritten - samplePosition) - bytesWrittenPastNalUnit;
+              output.sampleMetadata(sampleTimeUs, flags, size, bytesWrittenPastNalUnit, null);
+            }
+            foundFirstSample = true;
+            samplePosition = totalBytesWritten - bytesWrittenPastNalUnit;
+            sampleTimeUs = pesTimeUs;
+            isKeyframe = false;
+            break;
+        }
+
+        // Indicate the end of the previous NAL unit. If the length to the start of the next unit
+        // is negative then we wrote too many bytes to the NAL buffers. Discard the excess bytes
+        // when notifying that the unit has ended.
+        feedNalUnitTargetEnd(pesTimeUs, lengthToNalUnit < 0 ? -lengthToNalUnit : 0);
+        // Indicate the start of the next NAL unit.
+        feedNalUnitTargetBuffersStart(nalUnitType);
+        // Continue scanning the data.
+        offset = nalUnitOffset + 3;
       }
     }
   }
@@ -190,18 +201,14 @@ import java.util.List;
       int unescapedLength = NalUnitUtil.unescapeStream(sei.nalData, sei.nalLength);
       seiWrapper.reset(sei.nalData, unescapedLength);
       seiWrapper.setPosition(4); // NAL prefix and nal_unit() header.
-      seiReader.consume(seiWrapper, pesTimeUs, true);
+      seiReader.consume(pesTimeUs, seiWrapper);
     }
   }
 
-  private void parseMediaFormat(NalUnitTargetBuffer sps, NalUnitTargetBuffer pps) {
-    byte[] spsData = new byte[sps.nalLength];
-    byte[] ppsData = new byte[pps.nalLength];
-    System.arraycopy(sps.nalData, 0, spsData, 0, sps.nalLength);
-    System.arraycopy(pps.nalData, 0, ppsData, 0, pps.nalLength);
+  private static MediaFormat parseMediaFormat(NalUnitTargetBuffer sps, NalUnitTargetBuffer pps) {
     List<byte[]> initializationData = new ArrayList<>();
-    initializationData.add(spsData);
-    initializationData.add(ppsData);
+    initializationData.add(Arrays.copyOf(sps.nalData, sps.nalLength));
+    initializationData.add(Arrays.copyOf(pps.nalData, pps.nalLength));
 
     // Unescape and parse the SPS unit.
     NalUnitUtil.unescapeStream(sps.nalData, sps.nalLength);
@@ -209,12 +216,9 @@ import java.util.List;
     bitArray.skipBits(32); // NAL header
     SpsData parsedSpsData = CodecSpecificDataUtil.parseSpsNalUnit(bitArray);
 
-    // Construct and output the format.
-    output.format(MediaFormat.createVideoFormat(MediaFormat.NO_VALUE, MimeTypes.VIDEO_H264,
-        MediaFormat.NO_VALUE, MediaFormat.NO_VALUE, C.UNKNOWN_TIME_US, parsedSpsData.width,
-        parsedSpsData.height, initializationData, MediaFormat.NO_VALUE,
-        parsedSpsData.pixelWidthAspectRatio));
-    hasOutputFormat = true;
+    return MediaFormat.createVideoFormat(null, MimeTypes.VIDEO_H264, MediaFormat.NO_VALUE,
+        MediaFormat.NO_VALUE, C.UNKNOWN_TIME_US, parsedSpsData.width, parsedSpsData.height,
+        initializationData, MediaFormat.NO_VALUE, parsedSpsData.pixelWidthAspectRatio);
   }
 
   /**

@@ -128,7 +128,7 @@ public class DashChunkSourceTest extends InstrumentationTestCase {
     ChunkOperationHolder out = new ChunkOperationHolder();
 
     // request first chunk; should get back initialization chunk
-    chunkSource.getChunkOperation(queue, 0, 0, out);
+    chunkSource.getChunkOperation(queue,  0, out);
 
     assertNotNull(out.chunk);
     assertNotNull(((InitializationChunk) out.chunk).dataSpec);
@@ -324,7 +324,8 @@ public class DashChunkSourceTest extends InstrumentationTestCase {
     DashChunkSource chunkSource = new DashChunkSource(manifestFetcher, mpd,
         DefaultDashTrackSelector.newVideoInstance(null, false, false), mock(DataSource.class), null,
         new FakeClock(mpd.availabilityStartTime + mpd.duration - ELAPSED_REALTIME_OFFSET_MS),
-        liveEdgeLatencyMs * 1000, ELAPSED_REALTIME_OFFSET_MS * 1000, startAtLiveEdge, null, null);
+        liveEdgeLatencyMs * 1000, ELAPSED_REALTIME_OFFSET_MS * 1000, startAtLiveEdge, null, null,
+        0);
     chunkSource.prepare();
     chunkSource.enable(0);
     return chunkSource;
@@ -386,7 +387,7 @@ public class DashChunkSourceTest extends InstrumentationTestCase {
   private static void checkLiveEdgeConsistency(DashChunkSource chunkSource, List<MediaChunk> queue,
       ChunkOperationHolder out, long seekPositionMs, long availableRangeStartMs,
       long availableRangeEndMs, long chunkStartTimeMs, long chunkEndTimeMs) {
-    chunkSource.getChunkOperation(queue, seekPositionMs * 1000, 0, out);
+    chunkSource.getChunkOperation(queue, seekPositionMs * 1000, out);
     TimeRange availableRange = chunkSource.getAvailableRange();
     checkAvailableRange(availableRange, availableRangeStartMs * 1000, availableRangeEndMs * 1000);
     if (chunkStartTimeMs < availableRangeEndMs) {
@@ -487,7 +488,7 @@ public class DashChunkSourceTest extends InstrumentationTestCase {
 
     // request "eleventh" chunk; this chunk isn't available yet, so we should get null
     out.chunk = null;
-    chunkSource.getChunkOperation(queue, seekPositionMs * 1000, 0, out);
+    chunkSource.getChunkOperation(queue, seekPositionMs * 1000, out);
     assertNull(out.chunk);
   }
 

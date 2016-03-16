@@ -58,6 +58,9 @@ import java.util.Collections;
   private final SampleReader sampleReader;
   private long totalBytesWritten;
 
+  // Per packet state that gets reset at the start of each packet.
+  private long pesTimeUs;
+
   // Scratch variables to avoid allocations.
   private final ParsableByteArray seiWrapper;
 
@@ -76,7 +79,6 @@ import java.util.Collections;
 
   @Override
   public void seek() {
-    seiReader.seek();
     NalUnitUtil.clearPrefixFlags(prefixFlags);
     vps.reset();
     sps.reset();
@@ -88,7 +90,12 @@ import java.util.Collections;
   }
 
   @Override
-  public void consume(ParsableByteArray data, long pesTimeUs, boolean startOfPacket) {
+  public void packetStarted(long pesTimeUs, boolean dataAlignmentIndicator) {
+    this.pesTimeUs = pesTimeUs;
+  }
+
+  @Override
+  public void consume(ParsableByteArray data) {
     while (data.bytesLeft() > 0) {
       int offset = data.getPosition();
       int limit = data.limit();
@@ -101,32 +108,34 @@ import java.util.Collections;
       // Scan the appended data, processing NAL units as they are encountered
       while (offset < limit) {
         int nalUnitOffset = NalUnitUtil.findNalUnit(dataArray, offset, limit, prefixFlags);
-        if (nalUnitOffset < limit) {
-          // We've seen the start of a NAL unit.
 
-          // This is the length to the start of the unit. It may be negative if the NAL unit
-          // actually started in previously consumed data.
-          int lengthToNalUnit = nalUnitOffset - offset;
-          if (lengthToNalUnit > 0) {
-            nalUnitData(dataArray, offset, nalUnitOffset);
-          }
-          int bytesWrittenPastPosition = limit - nalUnitOffset;
-          long absolutePosition = totalBytesWritten - bytesWrittenPastPosition;
-          // Indicate the end of the previous NAL unit. If the length to the start of the next unit
-          // is negative then we wrote too many bytes to the NAL buffers. Discard the excess bytes
-          // when notifying that the unit has ended.
-          nalUnitEnd(absolutePosition, bytesWrittenPastPosition,
-              lengthToNalUnit < 0 ? -lengthToNalUnit : 0, pesTimeUs);
-
-          // Indicate the start of the next NAL unit.
-          int nalUnitType = NalUnitUtil.getH265NalUnitType(dataArray, nalUnitOffset);
-          startNalUnit(absolutePosition, bytesWrittenPastPosition, nalUnitType);
-          // Continue scanning the data.
-          offset = nalUnitOffset + 3;
-        } else {
+        if (nalUnitOffset == limit) {
+          // We've scanned to the end of the data without finding the start of another NAL unit.
           nalUnitData(dataArray, offset, limit);
-          offset = limit;
+          return;
         }
+
+        // We've seen the start of a NAL unit of the following type.
+        int nalUnitType = NalUnitUtil.getH265NalUnitType(dataArray, nalUnitOffset);
+
+        // This is the number of bytes from the current offset to the start of the next NAL unit.
+        // It may be negative if the NAL unit started in the previously consumed data.
+        int lengthToNalUnit = nalUnitOffset - offset;
+        if (lengthToNalUnit > 0) {
+          nalUnitData(dataArray, offset, nalUnitOffset);
+        }
+
+        int bytesWrittenPastPosition = limit - nalUnitOffset;
+        long absolutePosition = totalBytesWritten - bytesWrittenPastPosition;
+        // Indicate the end of the previous NAL unit. If the length to the start of the next unit
+        // is negative then we wrote too many bytes to the NAL buffers. Discard the excess bytes
+        // when notifying that the unit has ended.
+        nalUnitEnd(absolutePosition, bytesWrittenPastPosition,
+            lengthToNalUnit < 0 ? -lengthToNalUnit : 0, pesTimeUs);
+        // Indicate the start of the next NAL unit.
+        startNalUnit(absolutePosition, bytesWrittenPastPosition, nalUnitType, pesTimeUs);
+        // Continue scanning the data.
+        offset = nalUnitOffset + 3;
       }
     }
   }
@@ -136,7 +145,7 @@ import java.util.Collections;
     // Do nothing.
   }
 
-  private void startNalUnit(long position, int offset, int nalUnitType) {
+  private void startNalUnit(long position, int offset, int nalUnitType, long pesTimeUs) {
     if (!hasOutputFormat) {
       vps.startNalUnit(nalUnitType);
       sps.startNalUnit(nalUnitType);
@@ -144,7 +153,7 @@ import java.util.Collections;
     }
     prefixSei.startNalUnit(nalUnitType);
     suffixSei.startNalUnit(nalUnitType);
-    sampleReader.startNalUnit(position, offset, nalUnitType);
+    sampleReader.startNalUnit(position, offset, nalUnitType, pesTimeUs);
   }
 
   private void nalUnitData(byte[] dataArray, int offset, int limit) {
@@ -161,13 +170,14 @@ import java.util.Collections;
 
   private void nalUnitEnd(long position, int offset, int discardPadding, long pesTimeUs) {
     if (hasOutputFormat) {
-      sampleReader.endNalUnit(position, offset, pesTimeUs);
+      sampleReader.endNalUnit(position, offset);
     } else {
       vps.endNalUnit(discardPadding);
       sps.endNalUnit(discardPadding);
       pps.endNalUnit(discardPadding);
       if (vps.isCompleted() && sps.isCompleted() && pps.isCompleted()) {
-        parseMediaFormat(vps, sps, pps);
+        output.format(parseMediaFormat(vps, sps, pps));
+        hasOutputFormat = true;
       }
     }
     if (prefixSei.endNalUnit(discardPadding)) {
@@ -176,7 +186,7 @@ import java.util.Collections;
 
       // Skip the NAL prefix and type.
       seiWrapper.skipBytes(5);
-      seiReader.consume(seiWrapper, pesTimeUs, true);
+      seiReader.consume(pesTimeUs, seiWrapper);
     }
     if (suffixSei.endNalUnit(discardPadding)) {
       int unescapedLength = NalUnitUtil.unescapeStream(suffixSei.nalData, suffixSei.nalLength);
@@ -184,11 +194,11 @@ import java.util.Collections;
 
       // Skip the NAL prefix and type.
       seiWrapper.skipBytes(5);
-      seiReader.consume(seiWrapper, pesTimeUs, true);
+      seiReader.consume(pesTimeUs, seiWrapper);
     }
   }
 
-  private void parseMediaFormat(NalUnitTargetBuffer vps, NalUnitTargetBuffer sps,
+  private static MediaFormat parseMediaFormat(NalUnitTargetBuffer vps, NalUnitTargetBuffer sps,
       NalUnitTargetBuffer pps) {
     // Build codec-specific data.
     byte[] csd = new byte[vps.nalLength + sps.nalLength + pps.nalLength];
@@ -294,15 +304,13 @@ import java.util.Collections;
       }
     }
 
-    output.format(MediaFormat.createVideoFormat(MediaFormat.NO_VALUE, MimeTypes.VIDEO_H265,
-        MediaFormat.NO_VALUE, MediaFormat.NO_VALUE, C.UNKNOWN_TIME_US, picWidthInLumaSamples,
-        picHeightInLumaSamples, Collections.singletonList(csd), MediaFormat.NO_VALUE,
-        pixelWidthHeightRatio));
-    hasOutputFormat = true;
+    return MediaFormat.createVideoFormat(null, MimeTypes.VIDEO_H265, MediaFormat.NO_VALUE,
+        MediaFormat.NO_VALUE, C.UNKNOWN_TIME_US, picWidthInLumaSamples, picHeightInLumaSamples,
+        Collections.singletonList(csd), MediaFormat.NO_VALUE, pixelWidthHeightRatio);
   }
 
   /** Skips scaling_list_data(). See H.265/HEVC (2014) 7.3.4. */
-  private void skipScalingList(ParsableBitArray bitArray) {
+  private static void skipScalingList(ParsableBitArray bitArray) {
     for (int sizeId = 0; sizeId < 4; sizeId++) {
       for (int matrixId = 0; matrixId < 6; matrixId += sizeId == 3 ? 3 : 1) {
         if (!bitArray.readBit()) { // scaling_list_pred_mode_flag[sizeId][matrixId]
@@ -377,6 +385,7 @@ import java.util.Collections;
     private long nalUnitStartPosition;
     private boolean nalUnitHasKeyframeData;
     private int nalUnitBytesRead;
+    private long nalUnitTimeUs;
     private boolean lookingForFirstSliceFlag;
     private boolean firstSliceFlag;
 
@@ -396,8 +405,9 @@ import java.util.Collections;
       readingSample = false;
     }
 
-    public void startNalUnit(long position, int offset, int nalUnitType) {
+    public void startNalUnit(long position, int offset, int nalUnitType, long pesTimeUs) {
       firstSliceFlag = false;
+      nalUnitTimeUs = pesTimeUs;
       nalUnitBytesRead = 0;
       nalUnitStartPosition = position;
       // Flush the previous sample when reading a non-VCL NAL unit.
@@ -422,7 +432,7 @@ import java.util.Collections;
       }
     }
 
-    public void endNalUnit(long position, int offset, long timeUs) {
+    public void endNalUnit(long position, int offset) {
       if (firstSliceFlag) {
         // If the NAL unit ending is the start of a new sample, output the previous one.
         if (readingSample) {
@@ -430,7 +440,7 @@ import java.util.Collections;
           outputSample(offset + nalUnitLength);
         }
         samplePosition = nalUnitStartPosition;
-        sampleTimeUs = timeUs;
+        sampleTimeUs = nalUnitTimeUs;
         readingSample = true;
         sampleIsKeyframe = nalUnitHasKeyframeData;
       }

@@ -23,6 +23,7 @@ import android.net.Uri;
 
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.drm.DrmInitData;
+import com.google.android.exoplayer.drm.DrmInitData.SchemeInitData;
 import com.google.android.exoplayer.extractor.ExtractorSampleSource;
 import com.google.android.exoplayer.extractor.mp4.PsshAtomUtil;
 import com.google.android.exoplayer.util.Assertions;
@@ -79,7 +80,8 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
   private int[] trackStates;
   private boolean[] pendingDiscontinuities;
 
-  private long seekPositionUs;
+  private long lastSeekPositionUs;
+  private long pendingSeekPositionUs;
 
   /**
    * Instantiates a new sample extractor reading from the specified {@code uri}.
@@ -184,15 +186,20 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
   }
 
   @Override
+  public long readDiscontinuity(int track) {
+    if (pendingDiscontinuities[track]) {
+      pendingDiscontinuities[track] = false;
+      return lastSeekPositionUs;
+    }
+    return NO_DISCONTINUITY;
+  }
+
+  @Override
   public int readData(int track, long positionUs, MediaFormatHolder formatHolder,
-      SampleHolder sampleHolder, boolean onlyReadDiscontinuity) {
+      SampleHolder sampleHolder) {
     Assertions.checkState(prepared);
     Assertions.checkState(trackStates[track] != TRACK_STATE_DISABLED);
     if (pendingDiscontinuities[track]) {
-      pendingDiscontinuities[track] = false;
-      return DISCONTINUITY_READ;
-    }
-    if (onlyReadDiscontinuity) {
       return NOTHING_READ;
     }
     if (trackStates[track] != TRACK_STATE_FORMAT_SENT) {
@@ -215,7 +222,7 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
       if (sampleHolder.isEncrypted()) {
         sampleHolder.cryptoInfo.setFromExtractorV16(extractor);
       }
-      seekPositionUs = C.UNKNOWN_TIME_US;
+      pendingSeekPositionUs = C.UNKNOWN_TIME_US;
       extractor.advance();
       return SAMPLE_READ;
     } else {
@@ -273,10 +280,10 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     if (psshInfo == null || psshInfo.isEmpty()) {
       return null;
     }
-    DrmInitData.Mapped drmInitData = new DrmInitData.Mapped(MimeTypes.VIDEO_MP4);
+    DrmInitData.Mapped drmInitData = new DrmInitData.Mapped();
     for (UUID uuid : psshInfo.keySet()) {
       byte[] psshAtom = PsshAtomUtil.buildPsshAtom(uuid, psshInfo.get(uuid));
-      drmInitData.put(uuid, psshAtom);
+      drmInitData.put(uuid, new SchemeInitData(MimeTypes.VIDEO_MP4, psshAtom));
     }
     return drmInitData;
   }
@@ -284,8 +291,9 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
   private void seekToUsInternal(long positionUs, boolean force) {
     // Unless forced, avoid duplicate calls to the underlying extractor's seek method in the case
     // that there have been no interleaving calls to readSample.
-    if (force || seekPositionUs != positionUs) {
-      seekPositionUs = positionUs;
+    if (force || pendingSeekPositionUs != positionUs) {
+      lastSeekPositionUs = positionUs;
+      pendingSeekPositionUs = positionUs;
       extractor.seekTo(positionUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
       for (int i = 0; i < trackStates.length; ++i) {
         if (trackStates[i] != TRACK_STATE_DISABLED) {
@@ -305,6 +313,8 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     int rotationDegrees = getOptionalIntegerV16(format, "rotation-degrees");
     int channelCount = getOptionalIntegerV16(format, android.media.MediaFormat.KEY_CHANNEL_COUNT);
     int sampleRate = getOptionalIntegerV16(format, android.media.MediaFormat.KEY_SAMPLE_RATE);
+    int encoderDelay = getOptionalIntegerV16(format, "encoder-delay");
+    int encoderPadding = getOptionalIntegerV16(format, "encoder-padding");
     ArrayList<byte[]> initializationData = new ArrayList<>();
     for (int i = 0; format.containsKey("csd-" + i); i++) {
       ByteBuffer buffer = format.getByteBuffer("csd-" + i);
@@ -315,10 +325,10 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     }
     long durationUs = format.containsKey(android.media.MediaFormat.KEY_DURATION)
         ? format.getLong(android.media.MediaFormat.KEY_DURATION) : C.UNKNOWN_TIME_US;
-    MediaFormat mediaFormat = new MediaFormat(MediaFormat.NO_VALUE, mimeType, MediaFormat.NO_VALUE,
-        maxInputSize, durationUs, width, height, rotationDegrees, MediaFormat.NO_VALUE,
-        channelCount, sampleRate, language, MediaFormat.OFFSET_SAMPLE_RELATIVE, initializationData,
-        false, MediaFormat.NO_VALUE, MediaFormat.NO_VALUE);
+    MediaFormat mediaFormat = new MediaFormat(null, mimeType, MediaFormat.NO_VALUE, maxInputSize,
+        durationUs, width, height, rotationDegrees, MediaFormat.NO_VALUE, channelCount, sampleRate,
+        language, MediaFormat.OFFSET_SAMPLE_RELATIVE, initializationData, false,
+        MediaFormat.NO_VALUE, MediaFormat.NO_VALUE, encoderDelay, encoderPadding);
     mediaFormat.setFrameworkFormatV16(format);
     return mediaFormat;
   }

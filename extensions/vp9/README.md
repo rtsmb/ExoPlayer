@@ -35,7 +35,7 @@ NDK_PATH="<path to Android NDK>"
 ```
 cd "${VP9_EXT_PATH}/jni" && \
 git clone https://chromium.googlesource.com/webm/libvpx libvpx && \
-git clone https://git.chromium.org/external/libyuv.git libyuv
+git clone https://chromium.googlesource.com/libyuv/libyuv libyuv
 ```
 
 * Run a script that generates necessary configuration files for libvpx
@@ -61,12 +61,12 @@ ${NDK_PATH}/ndk-build APP_ABI=all -j4
 ```
 // in settings.gradle
 include ':..:ExoPlayer:library'
-include ':..:ExoPlayer:vp9-extension'
+include ':..:ExoPlayer:extension-vp9'
 
 // in build.gradle
 dependencies {
     compile project(':..:ExoPlayer:library')
-    compile project(':..:ExoPlayer:vp9-extension')
+    compile project(':..:ExoPlayer:extension-vp9')
 }
 ```
 

@@ -94,8 +94,14 @@ public final class MediaCodecUtil {
 
   /**
    * Returns the name of the best decoder and its capabilities for the given mimeType.
+   *
+   * @param mimeType The mime type.
+   * @param secure Whether the decoder is required to support secure decryption. Always pass false
+   *     unless secure decryption really is required.
+   * @return The name of the best decoder and its capabilities for the given mimeType, or null if
+   *     no decoder exists.
    */
-  private static synchronized Pair<String, CodecCapabilities> getMediaCodecInfo(
+  public static synchronized Pair<String, CodecCapabilities> getMediaCodecInfo(
       String mimeType, boolean secure) throws DecoderQueryException {
     CodecKey key = new CodecKey(mimeType, secure);
     if (codecs.containsKey(key)) {
@@ -104,9 +110,11 @@ public final class MediaCodecUtil {
     MediaCodecListCompat mediaCodecList = Util.SDK_INT >= 21
         ? new MediaCodecListCompatV21(secure) : new MediaCodecListCompatV16();
     Pair<String, CodecCapabilities> codecInfo = getMediaCodecInfo(key, mediaCodecList);
-    // TODO: Verify this cannot occur on v22, and change >= to == [Internal: b/18678462].
-    if (secure && codecInfo == null && Util.SDK_INT >= 21) {
-      // Some devices don't list secure decoders on API level 21. Try the legacy path.
+    if (secure && codecInfo == null && 21 <= Util.SDK_INT && Util.SDK_INT <= 23) {
+      // Some devices don't list secure decoders on API level 21 [Internal: b/18678462]. Try the
+      // legacy path. We also try this path on API levels 22 and 23 as a defensive measure.
+      // TODO: Verify that the issue cannot occur on API levels 22 and 23, and tighten this block
+      // to execute on API level 21 only if confirmed.
       mediaCodecList = new MediaCodecListCompatV16();
       codecInfo = getMediaCodecInfo(key, mediaCodecList);
       if (codecInfo != null) {
@@ -177,6 +185,19 @@ public final class MediaCodecUtil {
       return false;
     }
 
+    // Work around broken audio decoders.
+    if (Util.SDK_INT < 21
+        && ("CIPAACDecoder".equals(name))
+            || "CIPMP3Decoder".equals(name)
+            || "CIPVorbisDecoder".equals(name)
+            || "AACDecoder".equals(name)
+            || "MP3Decoder".equals(name)) {
+      return false;
+    }
+    if (Util.SDK_INT == 16 && "OMX.SEC.MP3.Decoder".equals(name)) {
+      return false;
+    }
+
     // Work around an issue where creating a particular MP3 decoder on some devices on platform API
     // version 16 crashes mediaserver.
     if (Util.SDK_INT == 16
@@ -202,8 +223,10 @@ public final class MediaCodecUtil {
       return false;
     }
 
-    // Work around an issue where the VP8 decoder on Samsung Galaxy S4 Mini does not render video.
-    if (Util.SDK_INT <= 19 && Util.DEVICE != null && Util.DEVICE.startsWith("serrano")
+    // Work around an issue where the VP8 decoder on Samsung Galaxy S3/S4 Mini does not render
+    // video.
+    if (Util.SDK_INT <= 19 && Util.DEVICE != null
+        && (Util.DEVICE.startsWith("d2") || Util.DEVICE.startsWith("serrano"))
         && "samsung".equals(Util.MANUFACTURER) && name.equals("OMX.SEC.vp8.dec")) {
       return false;
     }
@@ -225,6 +248,27 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Tests whether the device advertises it can decode video of a given type at a specified width
+   * and height.
+   * <p>
+   * Must not be called if the device SDK version is less than 21.
+   *
+   * @param mimeType The mime type.
+   * @param secure Whether the decoder is required to support secure decryption. Always pass false
+   *     unless secure decryption really is required.
+   * @param width Width in pixels.
+   * @param height Height in pixels.
+   * @return Whether the decoder advertises support of the given size.
+   */
+  @TargetApi(21)
+  public static boolean isSizeSupportedV21(String mimeType, boolean secure, int width,
+      int height) throws DecoderQueryException {
+    Assertions.checkState(Util.SDK_INT >= 21);
+    MediaCodecInfo.VideoCapabilities videoCapabilities = getVideoCapabilitiesV21(mimeType, secure);
+    return videoCapabilities != null && videoCapabilities.isSizeSupported(width, height);
+  }
+
+  /**
    * Tests whether the device advertises it can decode video of a given type at a specified
    * width, height, and frame rate.
    * <p>
@@ -242,11 +286,7 @@ public final class MediaCodecUtil {
   public static boolean isSizeAndRateSupportedV21(String mimeType, boolean secure,
       int width, int height, double frameRate) throws DecoderQueryException {
     Assertions.checkState(Util.SDK_INT >= 21);
-    Pair<String, CodecCapabilities> info = getMediaCodecInfo(mimeType, secure);
-    if (info == null) {
-      return false;
-    }
-    MediaCodecInfo.VideoCapabilities videoCapabilities = info.second.getVideoCapabilities();
+    MediaCodecInfo.VideoCapabilities videoCapabilities = getVideoCapabilitiesV21(mimeType, secure);
     return videoCapabilities != null
         && videoCapabilities.areSizeAndRateSupported(width, height, frameRate);
   }
@@ -294,8 +334,18 @@ public final class MediaCodecUtil {
     return maxH264DecodableFrameSize;
   }
 
+  @TargetApi(21)
+  private static MediaCodecInfo.VideoCapabilities getVideoCapabilitiesV21(String mimeType,
+      boolean secure) throws DecoderQueryException {
+    Pair<String, CodecCapabilities> info = getMediaCodecInfo(mimeType, secure);
+    if (info == null) {
+      return null;
+    }
+    return info.second.getVideoCapabilities();
+  }
+
   /**
-   * Conversion values taken from: https://en.wikipedia.org/wiki/H.264/MPEG-4_AVC.
+   * Conversion values taken from ISO 14496-10 Table A-1.
    *
    * @param avcLevel one of CodecProfileLevel.AVCLevel* constants.
    * @return maximum frame size that can be decoded by a decoder with the specified avc level
@@ -303,21 +353,21 @@ public final class MediaCodecUtil {
    */
   private static int avcLevelToMaxFrameSize(int avcLevel) {
     switch (avcLevel) {
-      case CodecProfileLevel.AVCLevel1: return 25344;
-      case CodecProfileLevel.AVCLevel1b: return 25344;
-      case CodecProfileLevel.AVCLevel12: return 101376;
-      case CodecProfileLevel.AVCLevel13: return 101376;
-      case CodecProfileLevel.AVCLevel2: return 101376;
-      case CodecProfileLevel.AVCLevel21: return 202752;
-      case CodecProfileLevel.AVCLevel22: return 414720;
-      case CodecProfileLevel.AVCLevel3: return 414720;
-      case CodecProfileLevel.AVCLevel31: return 921600;
-      case CodecProfileLevel.AVCLevel32: return 1310720;
-      case CodecProfileLevel.AVCLevel4: return 2097152;
-      case CodecProfileLevel.AVCLevel41: return 2097152;
-      case CodecProfileLevel.AVCLevel42: return 2228224;
-      case CodecProfileLevel.AVCLevel5: return 5652480;
-      case CodecProfileLevel.AVCLevel51: return 9437184;
+      case CodecProfileLevel.AVCLevel1: return 99 * 16 * 16;
+      case CodecProfileLevel.AVCLevel1b: return 99 * 16 * 16;
+      case CodecProfileLevel.AVCLevel12: return 396 * 16 * 16;
+      case CodecProfileLevel.AVCLevel13: return 396 * 16 * 16;
+      case CodecProfileLevel.AVCLevel2: return 396 * 16 * 16;
+      case CodecProfileLevel.AVCLevel21: return 792 * 16 * 16;
+      case CodecProfileLevel.AVCLevel22: return 1620 * 16 * 16;
+      case CodecProfileLevel.AVCLevel3: return 1620 * 16 * 16;
+      case CodecProfileLevel.AVCLevel31: return 3600 * 16 * 16;
+      case CodecProfileLevel.AVCLevel32: return 5120 * 16 * 16;
+      case CodecProfileLevel.AVCLevel4: return 8192 * 16 * 16;
+      case CodecProfileLevel.AVCLevel41: return 8192 * 16 * 16;
+      case CodecProfileLevel.AVCLevel42: return 8704 * 16 * 16;
+      case CodecProfileLevel.AVCLevel5: return 22080 * 16 * 16;
+      case CodecProfileLevel.AVCLevel51: return 36864 * 16 * 16;
       default: return -1;
     }
   }

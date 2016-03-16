@@ -57,6 +57,7 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   private byte[] sampleData;
   private int sampleSize;
 
+  private long pendingDiscontinuityPositionUs;
   private boolean loadingFinished;
   private Loader loader;
   private IOException currentLoadableException;
@@ -102,6 +103,7 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   @Override
   public void enable(int track, long positionUs) {
     state = STATE_SEND_FORMAT;
+    pendingDiscontinuityPositionUs = NO_DISCONTINUITY;
     clearCurrentLoadableException();
     maybeStartLoading();
   }
@@ -120,11 +122,16 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   }
 
   @Override
+  public long readDiscontinuity(int track) {
+    long discontinuityPositionUs = pendingDiscontinuityPositionUs;
+    pendingDiscontinuityPositionUs = NO_DISCONTINUITY;
+    return discontinuityPositionUs;
+  }
+
+  @Override
   public int readData(int track, long positionUs, MediaFormatHolder formatHolder,
-      SampleHolder sampleHolder, boolean onlyReadDiscontinuity) {
-    if (onlyReadDiscontinuity) {
-      return NOTHING_READ;
-    } else if (state == STATE_END_OF_STREAM) {
+      SampleHolder sampleHolder) {
+    if (state == STATE_END_OF_STREAM) {
       return END_OF_STREAM;
     } else if (state == STATE_SEND_FORMAT) {
       formatHolder.format = format;
@@ -149,6 +156,7 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   @Override
   public void seekToUs(long positionUs) {
     if (state == STATE_END_OF_STREAM) {
+      pendingDiscontinuityPositionUs = positionUs;
       state = STATE_SEND_SAMPLE;
     }
   }

@@ -212,7 +212,7 @@ public interface ExoPlayer {
   public static final int STATE_BUFFERING = 3;
   /**
    * The player is prepared and able to immediately play from the current position. The player will
-   * be playing if {@link #setPlayWhenReady(boolean)} returns true, and paused otherwise.
+   * be playing if {@link #getPlayWhenReady()} returns true, and paused otherwise.
    */
   public static final int STATE_READY = 4;
   /**
@@ -272,42 +272,6 @@ public interface ExoPlayer {
    *     value that was passed to the {@link ExoPlayer.Factory#newInstance} method.
    */
   public void prepare(TrackRenderer... renderers);
-
-  /**
-   * Returns whether the renderer at the given index has media to play.
-   * <p>
-   * Always returns false whilst the player is in the {@link #STATE_PREPARING} state.
-   *
-   * @deprecated Use {@code getTrackCount(rendererIndex) > 0}.
-   * @param rendererIndex The index of the renderer.
-   * @return True if the renderer has media to play, false otherwise.
-   */
-  @Deprecated
-  public boolean getRendererHasMedia(int rendererIndex);
-
-  /**
-   * Sets whether the renderer at the given index is enabled.
-   *
-   * @deprecated Use {@code setSelectedTrack(rendererIndex, trackIndex)}. Passing
-   *     {@link #TRACK_DEFAULT} as {@code trackIndex} is equivalent to enabling the renderer with
-   *     this method. Passing {@link #TRACK_DISABLED} is equivalent to disabling the renderer.
-   * @param rendererIndex The index of the renderer.
-   * @param enabled Whether the renderer at the given index should be enabled.
-   */
-  @Deprecated
-  public void setRendererEnabled(int rendererIndex, boolean enabled);
-
-  /**
-   * Whether the renderer at the given index is enabled.
-   *
-   * @deprecated Use {@code getSelectedTrack(rendererIndex)}. A non-negative return value from that
-   *     method is equivalent to this method returning true. A negative return value is equivalent
-   *     to this method returning false.
-   * @param rendererIndex The index of the renderer.
-   * @return Whether the renderer is enabled.
-   */
-  @Deprecated
-  public boolean getRendererEnabled(int rendererIndex);
 
   /**
    * Returns the number of tracks exposed by the specified renderer.

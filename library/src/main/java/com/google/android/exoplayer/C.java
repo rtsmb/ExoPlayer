@@ -15,6 +15,8 @@
  */
 package com.google.android.exoplayer;
 
+import com.google.android.exoplayer.util.Util;
+
 import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
@@ -69,6 +71,25 @@ public final class C {
   public static final int ENCODING_E_AC3 = AudioFormat.ENCODING_E_AC3;
 
   /**
+   * @see AudioFormat#ENCODING_DTS
+   */
+  @SuppressWarnings("InlinedApi")
+  public static final int ENCODING_DTS = AudioFormat.ENCODING_DTS;
+
+  /**
+   * @see AudioFormat#ENCODING_DTS_HD
+   */
+  @SuppressWarnings("InlinedApi")
+  public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
+
+  /**
+   * @see AudioFormat#CHANNEL_OUT_7POINT1_SURROUND
+   */
+  @SuppressWarnings({"InlinedApi", "deprecation"})
+  public static final int CHANNEL_OUT_7POINT1_SURROUND = Util.SDK_INT < 23
+      ? AudioFormat.CHANNEL_OUT_7POINT1 : AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
+
+  /**
    * @see MediaExtractor#SAMPLE_FLAG_SYNC
    */
   @SuppressWarnings("InlinedApi")
@@ -89,6 +110,11 @@ public final class C {
    * A return value for methods where the end of an input was encountered.
    */
   public static final int RESULT_END_OF_INPUT = -1;
+
+  /**
+   * A return value for methods where the length of parsed data exceeds the maximum length allowed.
+   */
+  public static final int RESULT_MAX_LENGTH_EXCEEDED = -2;
 
   private C() {}
 

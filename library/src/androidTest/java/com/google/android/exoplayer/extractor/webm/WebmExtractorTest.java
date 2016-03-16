@@ -21,6 +21,7 @@ import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.ParserException;
 import com.google.android.exoplayer.drm.DrmInitData;
+import com.google.android.exoplayer.drm.DrmInitData.SchemeInitData;
 import com.google.android.exoplayer.extractor.ChunkIndex;
 import com.google.android.exoplayer.extractor.SeekMap;
 import com.google.android.exoplayer.extractor.webm.StreamBuilder.ContentEncodingSettings;
@@ -237,8 +238,12 @@ public final class WebmExtractorTest extends InstrumentationTestCase {
     assertIndex(DEFAULT_TIMECODE_SCALE, 1);
     DrmInitData drmInitData = extractorOutput.drmInitData;
     assertNotNull(drmInitData);
-    android.test.MoreAsserts.assertEquals(TEST_ENCRYPTION_KEY_ID, drmInitData.get(WIDEVINE_UUID));
-    android.test.MoreAsserts.assertEquals(TEST_ENCRYPTION_KEY_ID, drmInitData.get(ZERO_UUID));
+    SchemeInitData widevineInitData = drmInitData.get(WIDEVINE_UUID);
+    assertEquals(MimeTypes.VIDEO_WEBM, widevineInitData.mimeType);
+    android.test.MoreAsserts.assertEquals(TEST_ENCRYPTION_KEY_ID, widevineInitData.data);
+    SchemeInitData zeroInitData = drmInitData.get(ZERO_UUID);
+    assertEquals(MimeTypes.VIDEO_WEBM, zeroInitData.mimeType);
+    android.test.MoreAsserts.assertEquals(TEST_ENCRYPTION_KEY_ID, zeroInitData.data);
   }
 
   public void testPrepareThreeCuePoints() throws IOException, InterruptedException {
@@ -662,7 +667,7 @@ public final class WebmExtractorTest extends InstrumentationTestCase {
         .addOpusTrack(AUDIO_TRACK_NUMBER, TEST_CHANNEL_COUNT, TEST_SAMPLE_RATE, TEST_CODEC_DELAY,
             TEST_SEEK_PRE_ROLL, TEST_OPUS_CODEC_PRIVATE, TEST_DEFAULT_DURATION_NS)
         .addSimpleBlockMediaWithFixedSizeLacing(2 /* trackNumber */, 0 /* clusterTimecode */,
-            0 /* blockTimecode */, 20, media)
+            0 /* blockTimecode */, 20 /* lacingFrameCount */, media)
         .build(1);
 
     TestUtil.consumeTestData(extractor, data);
