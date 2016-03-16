@@ -185,9 +185,9 @@ import java.util.concurrent.LinkedBlockingDeque;
     if (sampleHolder.isEncrypted()) {
       readEncryptionData(sampleHolder, extrasHolder);
     }
-    if (sampleHolder.data != null) {
-      readData(extrasHolder.offset, sampleHolder.data, sampleHolder.getSize() - sampleHolder.data.position());
-    }
+    // Write the sample data into the holder.
+    sampleHolder.ensureSpaceForWrite(sampleHolder.size);
+    readData(extrasHolder.offset, sampleHolder.data, sampleHolder.size);
     // Advance the read head.
     long nextOffset = infoQueue.moveToNextSample();
     dropDownstreamTo(nextOffset);
@@ -253,7 +253,7 @@ import java.util.concurrent.LinkedBlockingDeque;
       }
     } else {
       clearDataSizes[0] = 0;
-      encryptedDataSizes[0] = sampleHolder.getSize() - (int) (offset - extrasHolder.offset);
+      encryptedDataSizes[0] = sampleHolder.size - (int) (offset - extrasHolder.offset);
     }
 
     // Populate the cryptoInfo.
@@ -263,7 +263,7 @@ import java.util.concurrent.LinkedBlockingDeque;
     // Adjust the offset and size to take into account the bytes read.
     int bytesRead = (int) (offset - extrasHolder.offset);
     extrasHolder.offset += bytesRead;
-    sampleHolder.setSize(sampleHolder.getSize() - bytesRead);
+    sampleHolder.size -= bytesRead;
   }
 
   /**
@@ -540,7 +540,7 @@ import java.util.concurrent.LinkedBlockingDeque;
         return false;
       }
       holder.timeUs = timesUs[relativeReadIndex];
-      holder.setSize(sizes[relativeReadIndex]);
+      holder.size = sizes[relativeReadIndex];
       holder.flags = flags[relativeReadIndex];
       extrasHolder.offset = offsets[relativeReadIndex];
       extrasHolder.encryptionKeyId = encryptionKeys[relativeReadIndex];

@@ -150,10 +150,10 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     root.setOnKeyListener(new OnKeyListener() {
       @Override
       public boolean onKey(View v, int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
-          return mediaController.dispatchKeyEvent(event);
+        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU) {
+          return false;
         }
-        return false;
+        return mediaController.dispatchKeyEvent(event);
       }
     });
 
@@ -453,12 +453,15 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
     }
     String trackName;
     if (MimeTypes.isVideo(format.mimeType)) {
-      trackName = joinWithSeparator(buildResolutionString(format), buildBitrateString(format));
+      trackName = joinWithSeparator(joinWithSeparator(buildResolutionString(format),
+          buildBitrateString(format)), buildTrackIdString(format));
     } else if (MimeTypes.isAudio(format.mimeType)) {
-      trackName = joinWithSeparator(joinWithSeparator(buildLanguageString(format),
-          buildAudioPropertyString(format)), buildBitrateString(format));
+      trackName = joinWithSeparator(joinWithSeparator(joinWithSeparator(buildLanguageString(format),
+          buildAudioPropertyString(format)), buildBitrateString(format)),
+          buildTrackIdString(format));
     } else {
-      trackName = joinWithSeparator(buildLanguageString(format), buildBitrateString(format));
+      trackName = joinWithSeparator(joinWithSeparator(buildLanguageString(format),
+          buildBitrateString(format)), buildTrackIdString(format));
     }
     return trackName.length() == 0 ? "unknown" : trackName;
   }
@@ -485,6 +488,11 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
 
   private static String joinWithSeparator(String first, String second) {
     return first.length() == 0 ? second : (second.length() == 0 ? first : first + ", " + second);
+  }
+
+  private static String buildTrackIdString(MediaFormat format) {
+    return format.trackId == MediaFormat.NO_VALUE ? ""
+        : String.format(Locale.US, " (%d)", format.trackId);
   }
 
   private boolean onTrackItemClick(MenuItem item, int type) {

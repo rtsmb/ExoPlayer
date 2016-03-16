@@ -15,6 +15,12 @@
  */
 package com.google.android.exoplayer;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.content.Context;
+import android.media.MediaExtractor;
+import android.net.Uri;
+
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.drm.DrmInitData;
 import com.google.android.exoplayer.extractor.ExtractorSampleSource;
@@ -22,12 +28,6 @@ import com.google.android.exoplayer.extractor.mp4.PsshAtomUtil;
 import com.google.android.exoplayer.util.Assertions;
 import com.google.android.exoplayer.util.MimeTypes;
 import com.google.android.exoplayer.util.Util;
-
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
-import android.content.Context;
-import android.media.MediaExtractor;
-import android.net.Uri;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -205,10 +205,10 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     if (extractorTrackIndex == track) {
       if (sampleHolder.data != null) {
         int offset = sampleHolder.data.position();
-        sampleHolder.setSize(extractor.readSampleData(sampleHolder.data, offset));
-        sampleHolder.data.position(offset + sampleHolder.getSize());
+        sampleHolder.size = extractor.readSampleData(sampleHolder.data, offset);
+        sampleHolder.data.position(offset + sampleHolder.size);
       } else {
-        sampleHolder.setSize(0);
+        sampleHolder.size = 0;
       }
       sampleHolder.timeUs = extractor.getSampleTime();
       sampleHolder.flags = extractor.getSampleFlags() & ALLOWED_FLAGS_MASK;
@@ -256,12 +256,6 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
       return sampleTime == -1 ? TrackRenderer.END_OF_TRACK_US : sampleTime + bufferedDurationUs;
     }
   }
-
-  @Override
-  public long getDurationUs() {
-    return C.UNKNOWN_TIME_US;
-  }
-
 
   @Override
   public void release() {
@@ -321,10 +315,10 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     }
     long durationUs = format.containsKey(android.media.MediaFormat.KEY_DURATION)
         ? format.getLong(android.media.MediaFormat.KEY_DURATION) : C.UNKNOWN_TIME_US;
-    MediaFormat mediaFormat = new MediaFormat(mimeType, MediaFormat.NO_VALUE, maxInputSize,
-        durationUs, width, height, rotationDegrees, MediaFormat.NO_VALUE, channelCount, sampleRate,
-        language, MediaFormat.OFFSET_SAMPLE_RELATIVE, initializationData, false,
-        MediaFormat.NO_VALUE, MediaFormat.NO_VALUE);
+    MediaFormat mediaFormat = new MediaFormat(MediaFormat.NO_VALUE, mimeType, MediaFormat.NO_VALUE,
+        maxInputSize, durationUs, width, height, rotationDegrees, MediaFormat.NO_VALUE,
+        channelCount, sampleRate, language, MediaFormat.OFFSET_SAMPLE_RELATIVE, initializationData,
+        false, MediaFormat.NO_VALUE, MediaFormat.NO_VALUE);
     mediaFormat.setFrameworkFormatV16(format);
     return mediaFormat;
   }
@@ -339,4 +333,8 @@ public final class FrameworkSampleSource implements SampleSource, SampleSourceRe
     return format.containsKey(key) ? format.getInteger(key) : MediaFormat.NO_VALUE;
   }
 
+  @Override
+  public long getDurationUs() {
+    return C.UNKNOWN_TIME_US;
+  }
 }

@@ -15,15 +15,15 @@
  */
 package com.google.android.exoplayer;
 
+import android.net.Uri;
+import android.os.SystemClock;
+
 import com.google.android.exoplayer.SampleSource.SampleSourceReader;
 import com.google.android.exoplayer.upstream.DataSource;
 import com.google.android.exoplayer.upstream.DataSpec;
 import com.google.android.exoplayer.upstream.Loader;
 import com.google.android.exoplayer.upstream.Loader.Loadable;
 import com.google.android.exoplayer.util.Assertions;
-
-import android.net.Uri;
-import android.os.SystemClock;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -137,8 +137,9 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
       return NOTHING_READ;
     } else {
       sampleHolder.timeUs = 0;
-      sampleHolder.setSize(sampleSize);
+      sampleHolder.size = sampleSize;
       sampleHolder.flags = C.SAMPLE_FLAG_SYNC;
+      sampleHolder.ensureSpaceForWrite(sampleHolder.size);
       sampleHolder.data.put(sampleData, 0, sampleSize);
       state = STATE_END_OF_STREAM;
       return SAMPLE_READ;
@@ -155,11 +156,6 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
   @Override
   public long getBufferedPositionUs() {
     return loadingFinished ? TrackRenderer.END_OF_TRACK_US : 0;
-  }
-
-  @Override
-  public long getDurationUs() {
-    return C.UNKNOWN_TIME_US;
   }
 
   @Override
@@ -252,6 +248,11 @@ public final class SingleSampleSource implements SampleSource, SampleSourceReade
     } finally {
       dataSource.close();
     }
+  }
+
+  @Override
+  public long getDurationUs() {
+    return C.UNKNOWN_TIME_US;
   }
 
 }

@@ -45,6 +45,11 @@ public final class SampleHolder {
   public ByteBuffer data;
 
   /**
+   * The size of the sample in bytes.
+   */
+  public int size;
+
+  /**
    * Flags that accompany the sample. A combination of {@link C#SAMPLE_FLAG_SYNC},
    * {@link C#SAMPLE_FLAG_ENCRYPTED} and {@link C#SAMPLE_FLAG_DECODE_ONLY}.
    */
@@ -56,11 +61,10 @@ public final class SampleHolder {
   public long timeUs;
 
   private final int bufferReplacementMode;
-  private int size;
 
   /**
-   * @param bufferReplacementMode Determines the behavior of the buffer allocation. One of
-   *     {@link #BUFFER_REPLACEMENT_MODE_DISABLED}, {@link #BUFFER_REPLACEMENT_MODE_NORMAL} and
+   * @param bufferReplacementMode Determines the behavior of {@link #ensureSpaceForWrite(int)}. One
+   *     of {@link #BUFFER_REPLACEMENT_MODE_DISABLED}, {@link #BUFFER_REPLACEMENT_MODE_NORMAL} and
    *     {@link #BUFFER_REPLACEMENT_MODE_DIRECT}.
    */
   public SampleHolder(int bufferReplacementMode) {
@@ -69,21 +73,39 @@ public final class SampleHolder {
   }
 
   /**
-   * Attempts to replace {@link #data} with a {@link ByteBuffer} of the specified capacity.
+   * Ensures that {@link #data} is large enough to accommodate a write of a given length at its
+   * current position.
+   * <p>
+   * If the capacity of {@link #data} is sufficient this method does nothing. If the capacity is
+   * insufficient then an attempt is made to replace {@link #data} with a new {@link ByteBuffer}
+   * whose capacity is sufficient. Data up to the current position is copied to the new buffer.
    *
-   * @param capacity The capacity of the replacement buffer, in bytes.
-   * @return True if the buffer was replaced. False otherwise.
+   * @param length The length of the write that must be accommodated, in bytes.
+   * @throws IllegalStateException If there is insufficient capacity to accommodate the write and
+   *     the buffer replacement mode of the holder is {@link #BUFFER_REPLACEMENT_MODE_DISABLED}.
    */
-  private boolean allocateBuffer(int capacity) {
-    switch (bufferReplacementMode) {
-      case BUFFER_REPLACEMENT_MODE_NORMAL:
-        data = ByteBuffer.allocate(capacity);
-        return true;
-      case BUFFER_REPLACEMENT_MODE_DIRECT:
-        data = ByteBuffer.allocateDirect(capacity);
-        return true;
+  public void ensureSpaceForWrite(int length) throws IllegalStateException {
+    if (data == null) {
+      data = createReplacementBuffer(length);
+      return;
     }
-    return false;
+    // Check whether the current buffer is sufficient.
+    int capacity = data.capacity();
+    int position = data.position();
+    int requiredCapacity = position + length;
+    if (capacity >= requiredCapacity) {
+      return;
+    }
+    // Instantiate a new buffer if possible.
+    ByteBuffer newData = createReplacementBuffer(requiredCapacity);
+    // Copy data up to the current position from the old buffer to the new one.
+    if (position > 0) {
+      data.position(0);
+      data.limit(position);
+      newData.put(data);
+    }
+    // Set the new buffer.
+    data = newData;
   }
 
   /**
@@ -116,19 +138,16 @@ public final class SampleHolder {
     }
   }
 
-  /**
-   * The size of the sample in bytes.
-   */
-  public int getSize() {
-    return Math.min(size, data == null ? 0 : data.capacity());
+  private ByteBuffer createReplacementBuffer(int requiredCapacity) {
+    if (bufferReplacementMode == BUFFER_REPLACEMENT_MODE_NORMAL) {
+      return ByteBuffer.allocate(requiredCapacity);
+    } else if (bufferReplacementMode == BUFFER_REPLACEMENT_MODE_DIRECT) {
+      return ByteBuffer.allocateDirect(requiredCapacity);
+    } else {
+      int currentCapacity = data == null ? 0 : data.capacity();
+      throw new IllegalStateException("Buffer too small (" + currentCapacity + " < "
+          + requiredCapacity + ")");
+    }
   }
 
-  public void setSize(int size) {
-    if (data == null) {
-      allocateBuffer(size);
-    } else if (data.capacity() < size) {
-      allocateBuffer(size);
-    }
-    this.size = size;
-  }
 }

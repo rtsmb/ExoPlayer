@@ -72,7 +72,7 @@ import java.util.LinkedList;
       }
       InputBuffer inputBuffer = availableInputBuffers[--availableInputBufferCount];
       inputBuffer.flags = 0;
-      inputBuffer.sampleHolder.data.clear();
+      inputBuffer.sampleHolder.clearData();
       return inputBuffer;
     }
   }
@@ -192,8 +192,8 @@ import java.util.LinkedList;
       SampleHolder sampleHolder = inputBuffer.sampleHolder;
       outputBuffer.timestampUs = sampleHolder.timeUs;
       outputBuffer.flags = 0;
-      sampleHolder.data.position(sampleHolder.data.position() - sampleHolder.getSize());
-      decodeResult = decoder.decode(sampleHolder.data, sampleHolder.getSize(), outputBuffer, outputRgb);
+      sampleHolder.data.position(sampleHolder.data.position() - sampleHolder.size);
+      decodeResult = decoder.decode(sampleHolder.data, sampleHolder.size, outputBuffer, outputRgb);
     }
 
     synchronized (lock) {

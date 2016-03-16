@@ -15,6 +15,10 @@
  */
 package com.google.android.exoplayer.playbacktests.util;
 
+import android.media.MediaCodec.CryptoException;
+import android.util.Log;
+import android.view.Surface;
+
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.ExoPlayer;
 import com.google.android.exoplayer.MediaCodecAudioTrackRenderer;
@@ -25,10 +29,6 @@ import com.google.android.exoplayer.audio.AudioTrack.WriteException;
 import com.google.android.exoplayer.chunk.ChunkSampleSource;
 import com.google.android.exoplayer.chunk.Format;
 import com.google.android.exoplayer.hls.HlsSampleSource;
-
-import android.media.MediaCodec.CryptoException;
-import android.util.Log;
-import android.view.Surface;
 
 import java.io.IOException;
 import java.text.NumberFormat;
@@ -84,7 +84,6 @@ public final class LogcatLogger implements ExoPlayer.Listener,
     Log.e(tag, "Decoder initialization error", e);
   }
 
-  @Override
   public void onDecoderError(IllegalStateException e) {
     Log.e(tag, "Decoder error", e);
   }
@@ -122,7 +121,7 @@ public final class LogcatLogger implements ExoPlayer.Listener,
 
   @Override
   public void onDownstreamFormatChanged(int sourceId, Format format, int trigger,
-      int mediaTimeMs) {
+      long mediaTimeMs) {
     Log.i(tag, "Downstream format changed (" + sourceId + "): " + format.id);
   }
 
@@ -134,18 +133,18 @@ public final class LogcatLogger implements ExoPlayer.Listener,
 
   @Override
   public void onLoadStarted(int sourceId, long length, int type, int trigger, Format format,
-      int mediaStartTimeMs, int mediaEndTimeMs) {}
+      long mediaStartTimeMs, long mediaEndTimeMs) {}
 
   @Override
   public void onLoadCompleted(int sourceId, long bytesLoaded, int type, int trigger,
-      Format format, int mediaStartTimeMs, int mediaEndTimeMs, long elapsedRealtimeMs,
+      Format format, long mediaStartTimeMs, long mediaEndTimeMs, long elapsedRealtimeMs,
       long loadDurationMs) {}
 
   @Override
   public void onLoadCanceled(int sourceId, long bytesLoaded) {}
 
   @Override
-  public void onUpstreamDiscarded(int sourceId, int mediaStartTimeMs, int mediaEndTimeMs) {}
+  public void onUpstreamDiscarded(int sourceId, long mediaStartTimeMs, long mediaEndTimeMs) {}
 
   @Override
   public void onDrawnToSurface(Surface surface) {}

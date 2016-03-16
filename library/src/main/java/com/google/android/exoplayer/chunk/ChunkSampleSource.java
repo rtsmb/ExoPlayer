@@ -219,7 +219,7 @@ public class ChunkSampleSource implements SampleSource, SampleSourceReader, Load
     boolean haveSamples = !sampleQueue.isEmpty();
     BaseMediaChunk currentChunk = mediaChunks.getFirst();
     while (haveSamples && mediaChunks.size() > 1
-        && mediaChunks.get(1).getFirstSampleIndex() == sampleQueue.getReadIndex()) {
+        && mediaChunks.get(1).getFirstSampleIndex() <= sampleQueue.getReadIndex()) {
       mediaChunks.removeFirst();
       currentChunk = mediaChunks.getFirst();
     }
@@ -579,8 +579,8 @@ public class ChunkSampleSource implements SampleSource, SampleSourceReader, Load
     return Math.min((errorCount - 1) * 1000, 5000);
   }
 
-  protected final int usToMs(long timeUs) {
-    return (int) (timeUs / 1000);
+  protected final long usToMs(long timeUs) {
+    return timeUs / 1000;
   }
 
   private void notifyLoadStarted(final long length, final int type, final int trigger,
