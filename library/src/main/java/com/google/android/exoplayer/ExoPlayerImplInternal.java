@@ -327,26 +327,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 
   private long measureMaximumTrackDuration() {
     long durationUs = 0;
-    for (int rendererIndex = 0; rendererIndex < renderers.length; rendererIndex++) {
-      TrackRenderer renderer = renderers[rendererIndex];
-      int rendererTrackCount = renderer.getTrackCount();
-      MediaFormat[] rendererTrackFormats = new MediaFormat[rendererTrackCount];
-      for (int trackIndex = 0; trackIndex < rendererTrackCount; trackIndex++) {
-        rendererTrackFormats[trackIndex] = renderer.getFormat(trackIndex);
-      }
-      trackFormats[rendererIndex] = rendererTrackFormats;
-      if (rendererTrackCount > 0) {
-        if (durationUs == TrackRenderer.UNKNOWN_TIME_US) {
-          // We've already encountered a track for which the duration is unknown, so the media
-          // duration is unknown regardless of the duration of this track.
-        } else {
-          long trackDurationUs = renderer.getDurationUs();
-          if (trackDurationUs == TrackRenderer.UNKNOWN_TIME_US) {
-            durationUs = TrackRenderer.UNKNOWN_TIME_US;
-          } else if (trackDurationUs == TrackRenderer.MATCH_LONGEST_US) {
-            // Do nothing.
+    if (renderers != null) {
+      for (int rendererIndex = 0; rendererIndex < renderers.length; rendererIndex++) {
+        TrackRenderer renderer = renderers[rendererIndex];
+        int rendererTrackCount = renderer.getTrackCount();
+        MediaFormat[] rendererTrackFormats = new MediaFormat[rendererTrackCount];
+        for (int trackIndex = 0; trackIndex < rendererTrackCount; trackIndex++) {
+          rendererTrackFormats[trackIndex] = renderer.getFormat(trackIndex);
+        }
+        trackFormats[rendererIndex] = rendererTrackFormats;
+        if (rendererTrackCount > 0) {
+          if (durationUs == TrackRenderer.UNKNOWN_TIME_US) {
+            // We've already encountered a track for which the duration is unknown, so the media
+            // duration is unknown regardless of the duration of this track.
           } else {
-            durationUs = Math.max(durationUs, trackDurationUs);
+            long trackDurationUs = renderer.getDurationUs();
+            if (trackDurationUs == TrackRenderer.UNKNOWN_TIME_US) {
+              durationUs = TrackRenderer.UNKNOWN_TIME_US;
+            } else if (trackDurationUs == TrackRenderer.MATCH_LONGEST_US) {
+              // Do nothing.
+            } else {
+              durationUs = Math.max(durationUs, trackDurationUs);
+            }
           }
         }
       }
