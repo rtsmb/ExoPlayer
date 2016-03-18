@@ -57,6 +57,8 @@ import java.util.Locale;
 public class HlsChunkSource implements HlsTrackSelector.Output {
   private long mediaPlaylistStartTimeUs;
   private int mediaPlaylistSequenceStart;
+  private Long bitrateEstimateOverride;
+  private Long bitrateEstimateDefault;
 
   /**
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
@@ -684,6 +686,12 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
   private int getNextVariantIndex(TsChunk previousTsChunk, long playbackPositionUs) {
     clearStaleBlacklistedVariants();
     long bitrateEstimate = bandwidthMeter.getBitrateEstimate();
+    if (bitrateEstimate == BandwidthMeter.NO_ESTIMATE && bitrateEstimateDefault != null) {
+      bitrateEstimate = bitrateEstimateDefault;
+    }
+    if (bitrateEstimateOverride != null)  {
+      bitrateEstimate = bitrateEstimateOverride;
+    }
     if (variantBlacklistTimes[selectedVariantIndex] != 0) {
       // The current variant has been blacklisted, so we have no choice but to re-evaluate.
       return getVariantIndexForBandwidth(bitrateEstimate);
@@ -910,4 +918,17 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
 
   }
 
+  /**
+   * @param bitrateEstimateDefault null to disable or long value to have a default value to use bandwidth is estimated
+   */
+  public void setBitrateEstimateDefault(Long bitrateEstimateDefault) {
+    this.bitrateEstimateDefault = bitrateEstimateDefault;
+  }
+
+  /**
+   * @param bitrateEstimateOverride null to disable or long value to have a value to always use instead of the actual bandwidth estimate
+   */
+  public void setBitrateEstimateOverride(Long bitrateEstimateOverride) {
+    this.bitrateEstimateOverride = bitrateEstimateOverride;
+  }
 }
