@@ -689,7 +689,9 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
     if (bitrateEstimate == BandwidthMeter.NO_ESTIMATE && bitrateEstimateDefault != null) {
       bitrateEstimate = bitrateEstimateDefault;
     }
+    boolean variantOverridden = false;
     if (bitrateEstimateOverride != null)  {
+      variantOverridden = true;
       bitrateEstimate = bitrateEstimateOverride;
     }
     if (variantBlacklistTimes[selectedVariantIndex] != 0) {
@@ -714,7 +716,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
     long bufferedPositionUs = adaptiveMode == ADAPTIVE_MODE_SPLICE ? previousTsChunk.startTimeUs
         : previousTsChunk.endTimeUs;
     long bufferedUs = bufferedPositionUs - playbackPositionUs;
-    if (variantBlacklistTimes[selectedVariantIndex] != 0
+    if (variantOverridden || variantBlacklistTimes[selectedVariantIndex] != 0
         || (idealIndex > selectedVariantIndex && bufferedUs < maxBufferDurationToSwitchDownUs)
         || (idealIndex < selectedVariantIndex && bufferedUs > minBufferDurationToSwitchUpUs)) {
       // Switch variant.
