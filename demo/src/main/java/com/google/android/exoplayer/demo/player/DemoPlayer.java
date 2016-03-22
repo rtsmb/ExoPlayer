@@ -65,6 +65,9 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     DashChunkSource.EventListener, TextRenderer, MetadataRenderer<List<Id3Frame>>,
     DebugTextViewHelper.Provider, HlsChunkSource.EventListener {
 
+  private HlsChunkSource chunkSource;
+  private HlsSampleSource sampleSource;
+
   /**
    * Builds renderers for the player.
    */
@@ -300,12 +303,13 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
 
   /**
    * Invoked with the results from a {@link RendererBuilder}.
-   *
-   * @param renderers Renderers indexed by {@link DemoPlayer} TYPE_* constants. An individual
+   *  @param renderers Renderers indexed by {@link DemoPlayer} TYPE_* constants. An individual
    *     element may be null if there do not exist tracks of the corresponding type.
    * @param bandwidthMeter Provides an estimate of the currently available bandwidth. May be null.
+   * @param chunkSource
+   * @param sampleSource
    */
-  /* package */ void onRenderers(TrackRenderer[] renderers, BandwidthMeter bandwidthMeter) {
+  /* package */ void onRenderers(TrackRenderer[] renderers, BandwidthMeter bandwidthMeter, HlsChunkSource chunkSource, HlsSampleSource sampleSource) {
     for (int i = 0; i < RENDERER_COUNT; i++) {
       if (renderers[i] == null) {
         // Convert a null renderer to a dummy renderer.
@@ -322,6 +326,8 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     pushSurface(false);
     player.prepare(renderers);
     rendererBuildingState = RENDERER_BUILDING_STATE_BUILT;
+    this.chunkSource = chunkSource;
+    this.sampleSource = sampleSource;
   }
 
   public void onPlaylistInformation(boolean live, long playlistStartTimeUs) {
@@ -620,6 +626,24 @@ public class DemoPlayer implements ExoPlayer.Listener, ChunkSampleSource.EventLi
     } else {
       player.sendMessage(
           videoRenderer, MediaCodecVideoTrackRenderer.MSG_SET_SURFACE, surface);
+    }
+  }
+
+  /**
+   * @param bitrateEstimateDefault null to disable or long value to have a default value to use bandwidth is estimated
+   */
+  public void setBitrateEstimateDefault(Long bitrateEstimateDefault) {
+    if (chunkSource != null) {
+      chunkSource.setBitrateEstimateDefault(bitrateEstimateDefault);
+    }
+  }
+
+  /**
+   * @param bitrateEstimateOverride null to disable or long value to have a value to always use instead of the actual bandwidth estimate
+   */
+  public void setBitrateEstimateOverride(Long bitrateEstimateOverride) {
+    if (chunkSource != null) {
+      chunkSource.setBitrateEstimateOverride(bitrateEstimateOverride);
     }
   }
 

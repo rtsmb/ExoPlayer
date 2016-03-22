@@ -15,6 +15,12 @@
  */
 package com.google.android.exoplayer.demo.player;
 
+import android.content.Context;
+import android.media.AudioManager;
+import android.media.MediaCodec;
+import android.os.Handler;
+import android.util.Log;
+
 import com.google.android.exoplayer.DefaultLoadControl;
 import com.google.android.exoplayer.LoadControl;
 import com.google.android.exoplayer.MediaCodecAudioTrackRenderer;
@@ -46,12 +52,6 @@ import com.google.android.exoplayer.upstream.DefaultUriDataSource;
 import com.google.android.exoplayer.upstream.UriDataSource;
 import com.google.android.exoplayer.util.ManifestFetcher;
 import com.google.android.exoplayer.util.Util;
-
-import android.content.Context;
-import android.media.AudioManager;
-import android.media.MediaCodec;
-import android.os.Handler;
-import android.util.Log;
 
 import java.io.IOException;
 
@@ -253,7 +253,7 @@ public class DashRendererBuilder implements RendererBuilder {
       renderers[DemoPlayer.TYPE_VIDEO] = videoRenderer;
       renderers[DemoPlayer.TYPE_AUDIO] = audioRenderer;
       renderers[DemoPlayer.TYPE_TEXT] = textRenderer;
-      player.onRenderers(renderers, bandwidthMeter);
+      player.onRenderers(renderers, bandwidthMeter, null, null);
     }
 
     private static int getWidevineSecurityLevel(StreamingDrmSessionManager sessionManager) {

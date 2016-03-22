@@ -158,9 +158,10 @@ public class HlsRendererBuilder implements RendererBuilder {
 
       // Build the audio renderer.
       MediaCodecAudioTrackRenderer audioRenderer;
+        HlsChunkSource audioChunkSource = null;
       if (haveAudios) {
         DataSource audioDataSource = new DefaultUriDataSource(context, bandwidthMeter, userAgent);
-        HlsChunkSource audioChunkSource = new HlsChunkSource(false /* isMaster */, audioDataSource,
+        audioChunkSource = new HlsChunkSource(false /* isMaster */, audioDataSource,
             url, manifest, DefaultHlsTrackSelector.newAudioInstance(), bandwidthMeter,
             timestampAdjusterProvider, HlsChunkSource.ADAPTIVE_MODE_SPLICE, player);
         HlsSampleSource audioSampleSource = new HlsSampleSource(audioChunkSource, loadControl,
@@ -195,7 +196,7 @@ public class HlsRendererBuilder implements RendererBuilder {
       renderers[DemoPlayer.TYPE_AUDIO] = audioRenderer;
       renderers[DemoPlayer.TYPE_METADATA] = id3Renderer;
       renderers[DemoPlayer.TYPE_TEXT] = textRenderer;
-      player.onRenderers(renderers, bandwidthMeter);
+      player.onRenderers(renderers, bandwidthMeter, chunkSource, sampleSource);
     }
 
   }

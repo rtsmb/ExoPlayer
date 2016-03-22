@@ -68,7 +68,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:visibility="gone">
+        android:visibility="gone"
+        tools:visibility="visible">
 
       <Button android:id="@+id/video_controls"
           android:layout_width="wrap_content"
@@ -107,6 +108,32 @@
           android:text="@string/retry"
           android:visibility="gone"
           style="@style/DemoButton"/>
+
+      <Button android:id="@+id/quality_sd"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="SD"
+          style="@style/DemoButton"
+          android:visibility="visible"
+          android:tag="0"
+          android:onClick="qualitySwitch"/>
+
+      <Button android:id="@+id/quality_hd"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="HD"
+          style="@style/DemoButton"
+          android:visibility="visible"
+          android:tag="999999999"
+          android:onClick="qualitySwitch"/>
+
+      <Button android:id="@+id/quality_adaptive"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="Adaptive"
+          style="@style/DemoButton"
+          android:visibility="visible"
+          android:onClick="qualitySwitch"/>
 
     </LinearLayout>
 
