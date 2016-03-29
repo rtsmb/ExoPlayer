@@ -576,12 +576,13 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
           mediaPlaylistStartTimeUs += oldMediaPlaylist.segments.get(i).durationSecs * C.MICROS_PER_SECOND;
         }
         mediaPlaylistSequenceStart = newMediaPlaylist.mediaSequence;
-        if (eventListener != null) {
-          eventListener.onPlaylistInformation(live, mediaPlaylistStartTimeUs);
-        }
       }
 
       setMediaPlaylist(mediaPlaylistChunk.variantIndex, newMediaPlaylist);
+
+      if (eventListener != null) {
+        eventListener.onPlaylistInformation(live, mediaPlaylistStartTimeUs);
+      }
     } else if (chunk instanceof EncryptionKeyChunk) {
       EncryptionKeyChunk encryptionKeyChunk = (EncryptionKeyChunk) chunk;
       scratchSpace = encryptionKeyChunk.getDataHolder();
