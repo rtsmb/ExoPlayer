@@ -391,7 +391,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
    *     parameter is the position from which playback is expected to start (or restart) and hence
    *     should be interpreted as a seek position.
    * @param out The holder to populate with the result. {@link ChunkOperationHolder#queueSize} is
-   * @param b
+   * @param forcePosition if position provided must be applied
    */
   public void getChunkOperation(TsChunk previousTsChunk, long playbackPositionUs,
                                 ChunkOperationHolder out, boolean nextLoader, boolean forcePosition) {
@@ -419,7 +419,11 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
     if (previousTsChunk == null) {
       mediaPlaylistStartTimeUs = 0;
       mediaPlaylistSequenceStart = mediaPlaylist.mediaSequence;
-      if (!live || forcePosition) { // TODO seekPosition != 0 ... FIX Seek in LIVE DVR
+      if (live && playbackPositionUs == 0) {
+        // Ignore zero start position when playing live
+        forcePosition = false;
+      }
+      if (forcePosition || !live) {
         chunkMediaSequence = Util.binarySearchFloor(mediaPlaylist.segments, playbackPositionUs, true,
                 true) + mediaPlaylist.mediaSequence;
         if (live) {
