@@ -938,4 +938,16 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
   public void setBitrateEstimateOverride(Long bitrateEstimateOverride) {
     this.bitrateEstimateOverride = bitrateEstimateOverride;
   }
+
+  /**
+   * @return bitrate estimate in bits/sec or null if not available
+     */
+  public Long getBitrateEstimate() {
+    long bitrateEstimate = bandwidthMeter.getBitrateEstimate();
+    if (bitrateEstimate == BandwidthMeter.NO_ESTIMATE) {
+      return null;
+    } else {
+      return bitrateEstimate;
+    }
+  }
 }
