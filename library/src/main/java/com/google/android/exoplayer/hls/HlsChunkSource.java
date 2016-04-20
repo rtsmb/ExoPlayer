@@ -356,11 +356,15 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
   public void selectTrack(int index) {
     selectedTrackIndex = index;
     ExposedTrack selectedTrack = tracks.get(selectedTrackIndex);
-    selectedVariantIndex = selectedTrack.defaultVariantIndex;
     variants = selectedTrack.variants;
     variantPlaylists = new HlsMediaPlaylist[variants.length];
     variantLastPlaylistLoadTimesMs = new long[variants.length];
     variantBlacklistTimes = new long[variants.length];
+    if (bitrateEstimateDefault != null) {
+      selectedVariantIndex = getVariantIndexForBandwidth(bitrateEstimateDefault);
+    } else {
+      selectedVariantIndex = selectedTrack.defaultVariantIndex;
+    }
   }
 
   /**
