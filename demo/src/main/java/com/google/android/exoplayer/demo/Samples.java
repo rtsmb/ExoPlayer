@@ -213,6 +213,7 @@ import java.util.Locale;
             new Sample("SRF Short clip", "http://srfvodhd-vh.akamaihd.net/i/vod/sport_clip/2015/10/sport_clip_20151028_232644_v_webcast_h264_,q10,q20,q30,q40,.mp4.csmil/master.m3u8", Util.TYPE_HLS),
           new Sample("RTS Un", "http://srgssruni22ach-lh.akamaihd.net/i/enc22auni_ch@195192/master.m3u8", Util.TYPE_HLS),
             new Sample("Radio SRF1", "http://lsaplus.swisstxt.ch/audio/drs1_96.stream/playlist.m3u8?DVR", Util.TYPE_HLS),
+            new Sample("Radio La 1ere", "http://lsaplus.swisstxt.ch/audio/la-1ere_96.stream/playlist.m3u8?DVR", Util.TYPE_HLS),
       new Sample("Live TV 1", "http://vevoplaylist-live.hls.adaptive.level3.net/vevo/ch1/appleman.m3u8", Util.TYPE_HLS),
       new Sample("Live TV 2", "http://srv6.zoeweb.tv:1935/z330-live/stream/playlist.m3u8", Util.TYPE_HLS),
     new Sample("Apple master playlist",

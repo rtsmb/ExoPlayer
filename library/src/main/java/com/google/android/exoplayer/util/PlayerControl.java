@@ -100,7 +100,7 @@ public class PlayerControl implements MediaPlayerControl {
   @Override
   public void seekTo(int timeMillis) {
     long seekPosition = exoPlayer.getDuration() == ExoPlayer.UNKNOWN_TIME ? 0
-        : Math.min(Math.max(live ? 1 : 0, timeMillis), getDuration());
+        : Math.min(Math.max(0, timeMillis), getDuration());
     exoPlayer.seekTo(seekPosition);
   }
 

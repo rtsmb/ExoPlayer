@@ -727,6 +727,10 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback, 
           show();
         }
         return true;
+      } else if (keyCode == KeyEvent.KEYCODE_L) {
+        playerControl.seekTo(0);
+        show();
+        return true;
       }
       return super.dispatchKeyEvent(event);
     }
