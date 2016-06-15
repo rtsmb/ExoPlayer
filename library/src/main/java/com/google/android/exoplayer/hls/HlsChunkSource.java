@@ -55,6 +55,7 @@ import java.util.Locale;
  * A temporary test source of HLS chunks.
  */
 public class HlsChunkSource implements HlsTrackSelector.Output {
+  private static final long MAXIMUM_LIVE_PLAYLIST_AGE_MS = 20000;
   private long mediaPlaylistStartTimeUs;
   private int mediaPlaylistSequenceStart;
   private Long bitrateEstimateOverride;
@@ -412,6 +413,15 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
     }
 
     HlsMediaPlaylist mediaPlaylist = variantPlaylists[nextVariantIndex];
+    if (forcePosition && this.live && playbackPositionUs == 0L) {
+      long timeSinceLastMediaPlaylistLoadMs =
+              SystemClock.elapsedRealtime() - variantLastPlaylistLoadTimesMs[nextVariantIndex];
+      if (timeSinceLastMediaPlaylistLoadMs > MAXIMUM_LIVE_PLAYLIST_AGE_MS) {
+        // Ignore old media playlist when going back to live
+        mediaPlaylist = null;
+      }
+    }
+
     if (mediaPlaylist == null) {
       // We don't have the media playlist for the next variant. Request it now.
       out.chunk = newMediaPlaylistChunk(nextVariantIndex);
