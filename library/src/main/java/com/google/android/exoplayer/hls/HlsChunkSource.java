@@ -63,6 +63,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
    */
   public interface EventListener extends BaseChunkSampleSourceEventListener {
+    void onPlaylistInformation(boolean live);
     void onPlaylistLoaded();
   }
 
@@ -583,6 +584,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
       setMediaPlaylist(mediaPlaylistChunk.variantIndex, newMediaPlaylist);
 
       if (eventListener != null) {
+        eventListener.onPlaylistInformation(live);
         eventListener.onPlaylistLoaded();
       }
     } else if (chunk instanceof EncryptionKeyChunk) {
