@@ -56,8 +56,6 @@ import java.util.Locale;
  */
 public class HlsChunkSource implements HlsTrackSelector.Output {
   private static final long MAXIMUM_LIVE_PLAYLIST_AGE_MS = 20000;
-  private long mediaPlaylistStartTimeUs;
-  private int mediaPlaylistSequenceStart;
   private Long bitrateEstimateOverride;
   private Long bitrateEstimateDefault;
 
@@ -65,7 +63,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
    * Interface definition for a callback to be notified of {@link HlsChunkSource} events.
    */
   public interface EventListener extends BaseChunkSampleSourceEventListener {
-    void onPlaylistInformation(boolean live, long playlistStartTimeUs);
+    void onPlaylistLoaded();
   }
 
   private final EventListener eventListener;
@@ -431,8 +429,6 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
     selectedVariantIndex = nextVariantIndex;
     int chunkMediaSequence;
     if (previousTsChunk == null) {
-      mediaPlaylistStartTimeUs = 0;
-      mediaPlaylistSequenceStart = mediaPlaylist.mediaSequence;
       if (live && playbackPositionUs == 0) {
         // Ignore zero start position when playing live
         forcePosition = false;
@@ -454,8 +450,6 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
         // if (allowSkipAhead) {
         // If the chunk is no longer in the playlist. Skip ahead and start again.
         chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
-        mediaPlaylistStartTimeUs = 0;
-        mediaPlaylistSequenceStart = mediaPlaylist.mediaSequence;
         // } else {
         //   fatalError = new BehindLiveWindowException();
         //   return null;
@@ -586,20 +580,10 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
       scratchSpace = mediaPlaylistChunk.getDataHolder();
       HlsMediaPlaylist newMediaPlaylist = mediaPlaylistChunk.getResult();
 
-      HlsMediaPlaylist oldMediaPlaylist = variantPlaylists[selectedVariantIndex];
-      if (oldMediaPlaylist != null) {
-        for (int sequenceIndex = Math.max(mediaPlaylistSequenceStart, oldMediaPlaylist.mediaSequence), i = 0;
-             sequenceIndex < newMediaPlaylist.mediaSequence && i < oldMediaPlaylist.segments.size();
-             sequenceIndex++, i++) {
-          mediaPlaylistStartTimeUs += oldMediaPlaylist.segments.get(i).durationSecs * C.MICROS_PER_SECOND;
-        }
-        mediaPlaylistSequenceStart = newMediaPlaylist.mediaSequence;
-      }
-
       setMediaPlaylist(mediaPlaylistChunk.variantIndex, newMediaPlaylist);
 
       if (eventListener != null) {
-        eventListener.onPlaylistInformation(live, mediaPlaylistStartTimeUs);
+        eventListener.onPlaylistLoaded();
       }
     } else if (chunk instanceof EncryptionKeyChunk) {
       EncryptionKeyChunk encryptionKeyChunk = (EncryptionKeyChunk) chunk;
